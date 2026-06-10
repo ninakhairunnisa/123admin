@@ -1,0 +1,781 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: 123Admin 1.0.0\n"
+"Report-Msgid-Bugs-To: https://github.com/ninakhairunnisa/123admin/issues\n"
+"POT-Creation-Date: 2026-06-10 21:24+0000\n"
+"PO-Revision-Date: 2026-06-10 21:24+0000\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Domain: wfcp\n"
+"Language-Team: 123Admin\n"
+
+
+#: 123admin.php:36
+msgid "123Admin requires PHP %s or newer. The plugin is inactive."
+msgstr ""
+
+#: includes/api/class-wfcp-customers-controller.php:86
+msgid "Your account has been suspended. Please contact the store."
+msgstr ""
+
+#: includes/api/class-wfcp-customers-controller.php:128
+#: includes/api/class-wfcp-customers-controller.php:161
+#: includes/api/class-wfcp-customers-controller.php:213
+msgid "User not found."
+msgstr ""
+
+#: includes/api/class-wfcp-customers-controller.php:164
+msgid "Only administrators can edit administrator accounts."
+msgstr ""
+
+#: includes/api/class-wfcp-customers-controller.php:194
+msgid "Unknown role."
+msgstr ""
+
+#: includes/api/class-wfcp-customers-controller.php:197
+msgid "You cannot assign this role."
+msgstr ""
+
+#: includes/api/class-wfcp-customers-controller.php:216
+msgid "This account cannot be blocked."
+msgstr ""
+
+#: includes/api/class-wfcp-customers-controller.php:244
+#: includes/api/class-wfcp-orders-controller.php:376
+msgid "Note cannot be empty."
+msgstr ""
+
+#: includes/api/class-wfcp-dashboard-controller.php:248
+#: includes/api/class-wfcp-orders-controller.php:524
+#: includes/class-wfcp-i18n.php:149
+msgid "Guest"
+msgstr ""
+
+#: includes/api/class-wfcp-orders-controller.php:277
+#: includes/api/class-wfcp-orders-controller.php:288
+#: includes/api/class-wfcp-orders-controller.php:313
+msgid "Order not found."
+msgstr ""
+
+#: includes/api/class-wfcp-orders-controller.php:318
+msgid "Invalid order status."
+msgstr ""
+
+#: includes/api/class-wfcp-orders-controller.php:393
+msgid "Order or product not found."
+msgstr ""
+
+#: includes/api/class-wfcp-orders-controller.php:416
+msgid "Order item not found."
+msgstr ""
+
+#: includes/api/class-wfcp-orders-controller.php:460
+msgid "Select between 1 and 200 orders."
+msgstr ""
+
+#: includes/api/class-wfcp-orders-controller.php:463
+#: includes/api/class-wfcp-products-controller.php:296
+#: includes/api/class-wfcp-rest-controller.php:42
+msgid "You do not have permission to do this."
+msgstr ""
+
+#: includes/api/class-wfcp-orders-controller.php:480
+#: includes/api/class-wfcp-products-controller.php:337
+msgid "Unknown bulk action."
+msgstr ""
+
+#: includes/api/class-wfcp-products-controller.php:192
+msgid "Product name is required."
+msgstr ""
+
+#: includes/api/class-wfcp-products-controller.php:216
+#: includes/api/class-wfcp-products-controller.php:228
+#: includes/api/class-wfcp-products-controller.php:248
+msgid "Product not found."
+msgstr ""
+
+#: includes/api/class-wfcp-products-controller.php:286
+msgid "Select between 1 and 200 products."
+msgstr ""
+
+#: includes/api/class-wfcp-products-controller.php:353
+msgid "Variable product not found."
+msgstr ""
+
+#: includes/api/class-wfcp-products-controller.php:382
+msgid "Variation not found."
+msgstr ""
+
+#: includes/api/class-wfcp-products-controller.php:458
+msgid "You do not have permission to change prices."
+msgstr ""
+
+#: includes/api/class-wfcp-products-controller.php:461
+msgid "You do not have permission to change stock."
+msgstr ""
+
+#: includes/api/class-wfcp-reports-controller.php:352
+msgid "Unknown report type."
+msgstr ""
+
+#: includes/api/class-wfcp-rest-controller.php:39
+msgid "Authentication required."
+msgstr ""
+
+#: includes/api/class-wfcp-settings-controller.php:41
+msgid "Only administrators can manage panel settings."
+msgstr ""
+
+#: includes/class-wfcp-audit-log.php:74
+msgid "System"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:23
+msgid "Dashboard"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:24
+#: includes/class-wfcp-i18n.php:186
+msgid "Products"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:25
+#: includes/class-wfcp-i18n.php:158
+#: includes/class-wfcp-i18n.php:187
+msgid "Orders"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:26
+#: includes/class-wfcp-i18n.php:94
+msgid "Customers"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:27
+#: includes/class-wfcp-i18n.php:189
+msgid "Reports"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:28
+msgid "Settings"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:29
+msgid "Log out"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:30
+msgid "WP Admin"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:31
+msgid "Search everything…"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:32
+msgid "Theme"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:33
+msgid "Auto"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:34
+msgid "Light"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:35
+msgid "Dark"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:38
+msgid "Save"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:39
+msgid "Cancel"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:40
+#: includes/class-wfcp-i18n.php:193
+msgid "Delete"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:41
+#: includes/class-wfcp-i18n.php:192
+msgid "Edit"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:42
+#: includes/class-wfcp-i18n.php:190
+msgid "View"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:43
+#: includes/class-wfcp-i18n.php:191
+msgid "Create"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:44
+msgid "Duplicate"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:45
+#: includes/class-wfcp-i18n.php:197
+msgid "Print"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:46
+msgid "Export CSV"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:47
+msgid "Search"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:48
+msgid "Filters"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:49
+msgid "All"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:50
+msgid "None"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:51
+msgid "Yes"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:52
+msgid "No"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:53
+#: templates/panel.php:28
+msgid "Loading…"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:54
+msgid "Nothing found."
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:55
+msgid "Saved."
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:56
+msgid "Deleted."
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:57
+msgid "Something went wrong."
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:58
+msgid "Are you sure you want to delete this? This cannot be undone."
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:59
+msgid "Apply this action to all selected items?"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:60
+msgid "selected"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:61
+msgid "Bulk actions"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:62
+msgid "Apply"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:63
+msgid "Previous"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:64
+msgid "Next"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:65
+msgid "Page"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:66
+msgid "of"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:67
+msgid "Actions"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:68
+msgid "Close"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:69
+msgid "Copied."
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:70
+msgid "Press / to search, g then a key to navigate."
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:71
+msgid "You appear to be offline."
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:72
+msgid "Name"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:73
+msgid "Date"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:74
+msgid "Status"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:75
+msgid "Total"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:76
+msgid "Qty"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:77
+msgid "Note"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:78
+msgid "Add note"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:79
+msgid "Notes"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:80
+msgid "Email"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:81
+msgid "Phone"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:82
+msgid "Role"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:83
+msgid "Addresses"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:86
+msgid "Sales today"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:87
+msgid "Sales this week"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:88
+msgid "Sales this month"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:89
+msgid "Total revenue"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:90
+msgid "Orders today"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:91
+msgid "Pending orders"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:92
+msgid "Processing"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:93
+msgid "Completed"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:95
+msgid "Low stock"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:96
+msgid "Out of stock"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:97
+msgid "Sales – last 30 days"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:98
+msgid "Orders – last 30 days"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:99
+msgid "Recent orders"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:100
+msgid "Recent activity"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:103
+#: includes/class-wfcp-i18n.php:139
+msgid "Add product"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:104
+msgid "Product name"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:105
+msgid "Regular price"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:106
+msgid "Sale price"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:107
+msgid "Sale starts"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:108
+msgid "Sale ends"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:109
+msgid "SKU"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:110
+#: includes/class-wfcp-i18n.php:194
+msgid "Stock"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:111
+msgid "Manage stock"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:112
+msgid "Stock status"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:113
+msgid "In stock"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:114
+msgid "Categories"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:115
+msgid "Tags"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:116
+msgid "Short description"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:117
+msgid "Description"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:118
+msgid "Weight"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:119
+msgid "Dimensions (L×W×H)"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:120
+msgid "Publish"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:121
+msgid "Draft"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:122
+msgid "No image"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:123
+msgid "Best sellers"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:124
+msgid "Slow movers"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:125
+msgid "On sale"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:126
+msgid "Variations"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:127
+msgid "Bulk price update"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:128
+msgid "Bulk stock update"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:129
+msgid "Change prices by % (e.g. 10 or -5)"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:130
+msgid "Set stock to"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:131
+msgid "Print list"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:134
+msgid "Order"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:135
+msgid "New order"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:136
+msgid "Order #, phone, email or name…"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:137
+#: includes/class-wfcp-i18n.php:196
+msgid "Change status"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:138
+msgid "Items"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:140
+msgid "Payment"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:141
+msgid "Shipping"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:142
+msgid "Billing"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:143
+msgid "Customer"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:144
+msgid "Today"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:145
+msgid "Yesterday"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:146
+msgid "Invoice"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:147
+msgid "Shipping label"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:148
+msgid "History"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:150
+msgid "New order received!"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:151
+msgid "Refunds"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:152
+msgid "Discount"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:153
+msgid "Subtotal"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:154
+msgid "Tax"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:157
+msgid "Total spent"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:159
+msgid "Last login"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:160
+#: includes/class-wfcp-i18n.php:198
+msgid "Block"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:161
+msgid "Unblock"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:162
+msgid "Blocked"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:163
+msgid "Registered"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:164
+msgid "Never"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:167
+msgid "Sales"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:168
+msgid "Products report"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:169
+msgid "Customers report"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:170
+msgid "Categories report"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:171
+msgid "Stock report"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:172
+msgid "Daily"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:173
+msgid "Weekly"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:174
+msgid "Monthly"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:175
+msgid "Yearly"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:176
+msgid "Gross sales"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:177
+msgid "Net sales"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:178
+msgid "Avg. order value"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:179
+msgid "Items sold"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:182
+msgid "Panel address (slug)"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:183
+msgid "The panel will be available at site.com/{slug}. Examples: store, panel, control, manager."
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:184
+msgid "Roles with panel access"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:185
+msgid "Permissions"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:188
+msgid "Users"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:195
+msgid "Pricing"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:199
+msgid "Export"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:200
+msgid "Default theme"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:201
+msgid "Rows per page"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:202
+msgid "Low stock threshold"
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:203
+msgid "Settings saved. If you changed the slug, the panel URL has changed."
+msgstr ""
+
+#: includes/class-wfcp-i18n.php:204
+msgid "Audit log"
+msgstr ""
+
+#: includes/class-wfcp-plugin.php:111
+msgid "Open Panel"
+msgstr ""
+
+#: includes/class-wfcp-router.php:92
+msgid "You do not have permission to access this panel. Contact your store administrator."
+msgstr ""
+
+#: includes/class-wfcp-router.php:93
+msgid "Access denied"
+msgstr ""
+
+#: includes/class-wfcp-router.php:204
+#: includes/class-wfcp-router.php:205
+#: templates/panel.php:20
+msgid "Store Panel"
+msgstr ""
+
+#: includes/class-wfcp-security.php:63
+msgid "Too many requests. Please slow down and try again shortly."
+msgstr ""
