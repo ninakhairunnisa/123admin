@@ -2,8 +2,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: 123Admin 1.0.0\n"
 "Report-Msgid-Bugs-To: https://github.com/ninakhairunnisa/123admin/issues\n"
-"POT-Creation-Date: 2026-06-11 02:06+0000\n"
-"PO-Revision-Date: 2026-06-11 02:06+0000\n"
+"POT-Creation-Date: 2026-06-11 10:41+0000\n"
+"PO-Revision-Date: 2026-06-11 10:41+0000\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -16,107 +16,119 @@ msgstr ""
 msgid "123Admin requires PHP %s or newer. The plugin is inactive."
 msgstr "123Admin به PHP نسخه %s یا جدیدتر نیاز دارد. افزونه غیرفعال است."
 
-#: includes/api/class-wfcp-customers-controller.php:86
+#: includes/api/class-wfcp-customers-controller.php:93
 msgid "Your account has been suspended. Please contact the store."
 msgstr "حساب شما مسدود شده است. لطفاً با فروشگاه تماس بگیرید."
 
-#: includes/api/class-wfcp-customers-controller.php:190
-#: includes/api/class-wfcp-customers-controller.php:223
-#: includes/api/class-wfcp-customers-controller.php:295
+#: includes/api/class-wfcp-customers-controller.php:189
+msgid "Name and phone are required."
+msgstr "نام و موبایل الزامی است."
+
+#: includes/api/class-wfcp-customers-controller.php:203
+msgid "A customer with this phone already exists."
+msgstr "مشتری‌ای با این شماره موبایل قبلاً ثبت شده است."
+
+#: includes/api/class-wfcp-customers-controller.php:306
+#: includes/api/class-wfcp-customers-controller.php:339
+#: includes/api/class-wfcp-customers-controller.php:411
 msgid "User not found."
 msgstr "کاربر یافت نشد."
 
-#: includes/api/class-wfcp-customers-controller.php:229
+#: includes/api/class-wfcp-customers-controller.php:345
 msgid "Only administrators can edit administrator accounts."
 msgstr "فقط مدیران کل می‌توانند حساب مدیران را ویرایش کنند."
 
-#: includes/api/class-wfcp-customers-controller.php:259
+#: includes/api/class-wfcp-customers-controller.php:375
 msgid "Unknown role."
 msgstr "نقش ناشناخته."
 
-#: includes/api/class-wfcp-customers-controller.php:262
+#: includes/api/class-wfcp-customers-controller.php:378
 msgid "You cannot assign this role."
 msgstr "شما اجازه اختصاص این نقش را ندارید."
 
-#: includes/api/class-wfcp-customers-controller.php:284
+#: includes/api/class-wfcp-customers-controller.php:400
 msgid "You are not allowed to manage this account."
 msgstr "شما اجازه مدیریت این حساب را ندارید."
 
-#: includes/api/class-wfcp-customers-controller.php:301
+#: includes/api/class-wfcp-customers-controller.php:417
 msgid "This account cannot be blocked."
 msgstr "این حساب قابل مسدودسازی نیست."
 
-#: includes/api/class-wfcp-customers-controller.php:332
-#: includes/api/class-wfcp-orders-controller.php:433
+#: includes/api/class-wfcp-customers-controller.php:448
+#: includes/api/class-wfcp-orders-controller.php:448
 msgid "Note cannot be empty."
 msgstr "یادداشت نمی‌تواند خالی باشد."
 
 #: includes/api/class-wfcp-dashboard-controller.php:271
-#: includes/api/class-wfcp-orders-controller.php:587
+#: includes/api/class-wfcp-orders-controller.php:602
 #: includes/class-wfcp-i18n.php:151
 msgid "Guest"
 msgstr "مهمان"
 
-#: includes/api/class-wfcp-orders-controller.php:334
-#: includes/api/class-wfcp-orders-controller.php:345
-#: includes/api/class-wfcp-orders-controller.php:370
+#: includes/api/class-wfcp-orders-controller.php:349
+#: includes/api/class-wfcp-orders-controller.php:360
+#: includes/api/class-wfcp-orders-controller.php:385
 msgid "Order not found."
 msgstr "سفارش یافت نشد."
 
-#: includes/api/class-wfcp-orders-controller.php:375
+#: includes/api/class-wfcp-orders-controller.php:390
 msgid "Invalid order status."
 msgstr "وضعیت سفارش نامعتبر است."
 
-#: includes/api/class-wfcp-orders-controller.php:450
+#: includes/api/class-wfcp-orders-controller.php:465
 msgid "Order or product not found."
 msgstr "سفارش یا محصول یافت نشد."
 
-#: includes/api/class-wfcp-orders-controller.php:473
+#: includes/api/class-wfcp-orders-controller.php:488
 msgid "Order item not found."
 msgstr "آیتم سفارش یافت نشد."
 
-#: includes/api/class-wfcp-orders-controller.php:517
+#: includes/api/class-wfcp-orders-controller.php:532
 msgid "Select between 1 and 200 orders."
 msgstr "بین ۱ تا ۲۰۰ سفارش انتخاب کنید."
 
-#: includes/api/class-wfcp-orders-controller.php:520
-#: includes/api/class-wfcp-products-controller.php:303
+#: includes/api/class-wfcp-orders-controller.php:535
+#: includes/api/class-wfcp-products-controller.php:324
 #: includes/api/class-wfcp-rest-controller.php:42
 msgid "You do not have permission to do this."
 msgstr "شما مجوز انجام این کار را ندارید."
 
-#: includes/api/class-wfcp-orders-controller.php:537
-#: includes/api/class-wfcp-products-controller.php:344
+#: includes/api/class-wfcp-orders-controller.php:552
+#: includes/api/class-wfcp-products-controller.php:365
 msgid "Unknown bulk action."
 msgstr "عملیات گروهی ناشناخته."
 
-#: includes/api/class-wfcp-products-controller.php:199
+#: includes/api/class-wfcp-products-controller.php:220
 msgid "Product name is required."
 msgstr "نام محصول الزامی است."
 
-#: includes/api/class-wfcp-products-controller.php:223
-#: includes/api/class-wfcp-products-controller.php:235
-#: includes/api/class-wfcp-products-controller.php:255
+#: includes/api/class-wfcp-products-controller.php:244
+#: includes/api/class-wfcp-products-controller.php:256
+#: includes/api/class-wfcp-products-controller.php:276
 msgid "Product not found."
 msgstr "محصول یافت نشد."
 
-#: includes/api/class-wfcp-products-controller.php:293
+#: includes/api/class-wfcp-products-controller.php:314
 msgid "Select between 1 and 200 products."
 msgstr "بین ۱ تا ۲۰۰ محصول انتخاب کنید."
 
-#: includes/api/class-wfcp-products-controller.php:360
+#: includes/api/class-wfcp-products-controller.php:477
+msgid "Invalid stock value."
+msgstr "مقدار موجودی نامعتبر است."
+
+#: includes/api/class-wfcp-products-controller.php:498
 msgid "Variable product not found."
 msgstr "محصول متغیر یافت نشد."
 
-#: includes/api/class-wfcp-products-controller.php:389
+#: includes/api/class-wfcp-products-controller.php:529
 msgid "Variation not found."
 msgstr "متغیر یافت نشد."
 
-#: includes/api/class-wfcp-products-controller.php:471
+#: includes/api/class-wfcp-products-controller.php:611
 msgid "You do not have permission to change prices."
 msgstr "شما مجوز تغییر قیمت را ندارید."
 
-#: includes/api/class-wfcp-products-controller.php:474
+#: includes/api/class-wfcp-products-controller.php:614
 msgid "You do not have permission to change stock."
 msgstr "شما مجوز تغییر موجودی را ندارید."
 
@@ -141,13 +153,13 @@ msgid "Dashboard"
 msgstr "داشبورد"
 
 #: includes/class-wfcp-i18n.php:24
-#: includes/class-wfcp-i18n.php:188
+#: includes/class-wfcp-i18n.php:201
 msgid "Products"
 msgstr "محصولات"
 
 #: includes/class-wfcp-i18n.php:25
-#: includes/class-wfcp-i18n.php:160
-#: includes/class-wfcp-i18n.php:189
+#: includes/class-wfcp-i18n.php:173
+#: includes/class-wfcp-i18n.php:202
 msgid "Orders"
 msgstr "سفارشات"
 
@@ -157,7 +169,7 @@ msgid "Customers"
 msgstr "مشتریان"
 
 #: includes/class-wfcp-i18n.php:27
-#: includes/class-wfcp-i18n.php:191
+#: includes/class-wfcp-i18n.php:204
 msgid "Reports"
 msgstr "گزارشات"
 
@@ -202,22 +214,22 @@ msgid "Cancel"
 msgstr "انصراف"
 
 #: includes/class-wfcp-i18n.php:40
-#: includes/class-wfcp-i18n.php:195
+#: includes/class-wfcp-i18n.php:208
 msgid "Delete"
 msgstr "حذف"
 
 #: includes/class-wfcp-i18n.php:41
-#: includes/class-wfcp-i18n.php:194
+#: includes/class-wfcp-i18n.php:207
 msgid "Edit"
 msgstr "ویرایش"
 
 #: includes/class-wfcp-i18n.php:42
-#: includes/class-wfcp-i18n.php:192
+#: includes/class-wfcp-i18n.php:205
 msgid "View"
 msgstr "مشاهده"
 
 #: includes/class-wfcp-i18n.php:43
-#: includes/class-wfcp-i18n.php:193
+#: includes/class-wfcp-i18n.php:206
 msgid "Create"
 msgstr "ایجاد"
 
@@ -226,7 +238,7 @@ msgid "Duplicate"
 msgstr "کپی"
 
 #: includes/class-wfcp-i18n.php:45
-#: includes/class-wfcp-i18n.php:199
+#: includes/class-wfcp-i18n.php:212
 msgid "Print"
 msgstr "چاپ"
 
@@ -477,7 +489,7 @@ msgid "SKU"
 msgstr "شناسه (SKU)"
 
 #: includes/class-wfcp-i18n.php:112
-#: includes/class-wfcp-i18n.php:196
+#: includes/class-wfcp-i18n.php:209
 msgid "Stock"
 msgstr "موجودی"
 
@@ -578,7 +590,7 @@ msgid "Order #, phone, email or name…"
 msgstr "شماره سفارش، موبایل، ایمیل یا نام…"
 
 #: includes/class-wfcp-i18n.php:139
-#: includes/class-wfcp-i18n.php:198
+#: includes/class-wfcp-i18n.php:211
 msgid "Change status"
 msgstr "تغییر وضعیت"
 
@@ -643,131 +655,175 @@ msgid "Tax"
 msgstr "مالیات"
 
 #: includes/class-wfcp-i18n.php:159
+msgid "New customer"
+msgstr "مشتری جدید"
+
+#: includes/class-wfcp-i18n.php:160
+msgid "Create order"
+msgstr "ثبت سفارش"
+
+#: includes/class-wfcp-i18n.php:161
+msgid "Name, phone or email…"
+msgstr "نام، موبایل یا ایمیل…"
+
+#: includes/class-wfcp-i18n.php:162
+msgid "Select customer"
+msgstr "انتخاب مشتری"
+
+#: includes/class-wfcp-i18n.php:163
+msgid "Quick actions"
+msgstr "دکمه‌های سریع"
+
+#: includes/class-wfcp-i18n.php:164
+msgid "Quick status buttons"
+msgstr "دکمه‌های سریع وضعیت"
+
+#: includes/class-wfcp-i18n.php:165
+msgid "Stock step buttons (e.g. 1,5,10)"
+msgstr "گام‌های سریع موجودی (مثلاً 1,5,10)"
+
+#: includes/class-wfcp-i18n.php:166
+msgid "Adjust stock"
+msgstr "تغییر موجودی"
+
+#: includes/class-wfcp-i18n.php:167
+msgid "First name"
+msgstr "نام"
+
+#: includes/class-wfcp-i18n.php:168
+msgid "Last name"
+msgstr "نام خانوادگی"
+
+#: includes/class-wfcp-i18n.php:169
+msgid "Created."
+msgstr "ایجاد شد."
+
+#: includes/class-wfcp-i18n.php:172
 msgid "Total spent"
 msgstr "مجموع خرید"
 
-#: includes/class-wfcp-i18n.php:161
+#: includes/class-wfcp-i18n.php:174
 msgid "Last login"
 msgstr "آخرین ورود"
 
-#: includes/class-wfcp-i18n.php:162
-#: includes/class-wfcp-i18n.php:200
+#: includes/class-wfcp-i18n.php:175
+#: includes/class-wfcp-i18n.php:213
 msgid "Block"
 msgstr "مسدودسازی"
 
-#: includes/class-wfcp-i18n.php:163
+#: includes/class-wfcp-i18n.php:176
 msgid "Unblock"
 msgstr "رفع مسدودی"
 
-#: includes/class-wfcp-i18n.php:164
+#: includes/class-wfcp-i18n.php:177
 msgid "Blocked"
 msgstr "مسدود"
 
-#: includes/class-wfcp-i18n.php:165
+#: includes/class-wfcp-i18n.php:178
 msgid "Registered"
 msgstr "تاریخ عضویت"
 
-#: includes/class-wfcp-i18n.php:166
+#: includes/class-wfcp-i18n.php:179
 msgid "Never"
 msgstr "هرگز"
 
-#: includes/class-wfcp-i18n.php:169
+#: includes/class-wfcp-i18n.php:182
 msgid "Sales"
 msgstr "فروش"
 
-#: includes/class-wfcp-i18n.php:170
+#: includes/class-wfcp-i18n.php:183
 msgid "Products report"
 msgstr "گزارش محصولات"
 
-#: includes/class-wfcp-i18n.php:171
+#: includes/class-wfcp-i18n.php:184
 msgid "Customers report"
 msgstr "گزارش مشتریان"
 
-#: includes/class-wfcp-i18n.php:172
+#: includes/class-wfcp-i18n.php:185
 msgid "Categories report"
 msgstr "گزارش دسته‌بندی‌ها"
 
-#: includes/class-wfcp-i18n.php:173
+#: includes/class-wfcp-i18n.php:186
 msgid "Stock report"
 msgstr "گزارش موجودی"
 
-#: includes/class-wfcp-i18n.php:174
+#: includes/class-wfcp-i18n.php:187
 msgid "Daily"
 msgstr "روزانه"
 
-#: includes/class-wfcp-i18n.php:175
+#: includes/class-wfcp-i18n.php:188
 msgid "Weekly"
 msgstr "هفتگی"
 
-#: includes/class-wfcp-i18n.php:176
+#: includes/class-wfcp-i18n.php:189
 msgid "Monthly"
 msgstr "ماهانه"
 
-#: includes/class-wfcp-i18n.php:177
+#: includes/class-wfcp-i18n.php:190
 msgid "Yearly"
 msgstr "سالانه"
 
-#: includes/class-wfcp-i18n.php:178
+#: includes/class-wfcp-i18n.php:191
 msgid "Gross sales"
 msgstr "فروش ناخالص"
 
-#: includes/class-wfcp-i18n.php:179
+#: includes/class-wfcp-i18n.php:192
 msgid "Net sales"
 msgstr "فروش خالص"
 
-#: includes/class-wfcp-i18n.php:180
+#: includes/class-wfcp-i18n.php:193
 msgid "Avg. order value"
 msgstr "میانگین ارزش سفارش"
 
-#: includes/class-wfcp-i18n.php:181
+#: includes/class-wfcp-i18n.php:194
 msgid "Items sold"
 msgstr "اقلام فروخته‌شده"
 
-#: includes/class-wfcp-i18n.php:184
+#: includes/class-wfcp-i18n.php:197
 msgid "Panel address (slug)"
 msgstr "آدرس پنل (اسلاگ)"
 
-#: includes/class-wfcp-i18n.php:185
+#: includes/class-wfcp-i18n.php:198
 msgid "The panel will be available at site.com/{slug}. Examples: store, panel, control, manager."
 msgstr "پنل در آدرس site.com/{slug} در دسترس خواهد بود. نمونه: store ،panel ،control ،manager."
 
-#: includes/class-wfcp-i18n.php:186
+#: includes/class-wfcp-i18n.php:199
 msgid "Roles with panel access"
 msgstr "نقش‌های دارای دسترسی به پنل"
 
-#: includes/class-wfcp-i18n.php:187
+#: includes/class-wfcp-i18n.php:200
 msgid "Permissions"
 msgstr "مجوزها"
 
-#: includes/class-wfcp-i18n.php:190
+#: includes/class-wfcp-i18n.php:203
 msgid "Users"
 msgstr "کاربران"
 
-#: includes/class-wfcp-i18n.php:197
+#: includes/class-wfcp-i18n.php:210
 msgid "Pricing"
 msgstr "قیمت‌گذاری"
 
-#: includes/class-wfcp-i18n.php:201
+#: includes/class-wfcp-i18n.php:214
 msgid "Export"
 msgstr "صادرات"
 
-#: includes/class-wfcp-i18n.php:202
+#: includes/class-wfcp-i18n.php:215
 msgid "Default theme"
 msgstr "پوسته پیش‌فرض"
 
-#: includes/class-wfcp-i18n.php:203
+#: includes/class-wfcp-i18n.php:216
 msgid "Rows per page"
 msgstr "تعداد ردیف در صفحه"
 
-#: includes/class-wfcp-i18n.php:204
+#: includes/class-wfcp-i18n.php:217
 msgid "Low stock threshold"
 msgstr "آستانه کمبود موجودی"
 
-#: includes/class-wfcp-i18n.php:205
+#: includes/class-wfcp-i18n.php:218
 msgid "Settings saved. If you changed the slug, the panel URL has changed."
 msgstr "تنظیمات ذخیره شد. اگر اسلاگ را تغییر داده‌اید، آدرس پنل عوض شده است."
 
-#: includes/class-wfcp-i18n.php:206
+#: includes/class-wfcp-i18n.php:219
 msgid "Audit log"
 msgstr "لاگ فعالیت‌ها"
 
@@ -783,8 +839,8 @@ msgstr "شما مجوز دسترسی به این پنل را ندارید. با 
 msgid "Access denied"
 msgstr "دسترسی غیرمجاز"
 
-#: includes/class-wfcp-router.php:204
-#: includes/class-wfcp-router.php:205
+#: includes/class-wfcp-router.php:206
+#: includes/class-wfcp-router.php:207
 #: templates/panel.php:20
 msgid "Store Panel"
 msgstr "پنل فروشگاه"

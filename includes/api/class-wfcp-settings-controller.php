@@ -60,12 +60,14 @@ class WFCP_Settings_Controller extends WFCP_REST_Controller {
 		return rest_ensure_response(
 			array(
 				'settings'   => array(
-					'slug'        => $settings['slug'],
-					'roles'       => $settings['roles'],
-					'permissions' => $settings['permissions'],
-					'theme'       => $settings['theme'],
-					'per_page'    => $settings['per_page'],
-					'low_stock'   => $settings['low_stock'],
+					'slug'         => $settings['slug'],
+					'roles'        => $settings['roles'],
+					'permissions'  => $settings['permissions'],
+					'theme'        => $settings['theme'],
+					'per_page'     => $settings['per_page'],
+					'low_stock'    => $settings['low_stock'],
+					'quick_status' => $settings['quick_status'],
+					'quick_stock'  => $settings['quick_stock'],
 				),
 				'all_roles'  => $roles,
 				'cap_groups' => WFCP_Capabilities::GROUPS,
@@ -79,7 +81,7 @@ class WFCP_Settings_Controller extends WFCP_REST_Controller {
 	 */
 	public function update_settings( WP_REST_Request $request ): WP_REST_Response {
 		$params  = (array) $request->get_json_params();
-		$allowed = array_intersect_key( $params, array_flip( array( 'slug', 'roles', 'permissions', 'theme', 'per_page', 'low_stock' ) ) );
+		$allowed = array_intersect_key( $params, array_flip( array( 'slug', 'roles', 'permissions', 'theme', 'per_page', 'low_stock', 'quick_status', 'quick_stock' ) ) );
 
 		wfcp()->settings->update( $allowed );
 		$this->audit( 'settings.update', 'settings', 0, array( 'keys' => array_keys( $allowed ) ) );

@@ -145,6 +145,8 @@ class WFCP_Router {
 			),
 			'caps'       => $this->capabilities->current_user_caps(),
 			'statuses'   => $this->order_statuses(),
+			'quickStatus' => array_values( (array) $this->settings->get( 'quick_status', array() ) ),
+			'quickStock'  => array_values( (array) $this->settings->get( 'quick_stock', array( 1, 5, 10 ) ) ),
 			'i18n'       => WFCP_I18n::strings(),
 			'assets'     => array(
 				'css'  => $this->asset_url( 'assets/css/panel.css' ),

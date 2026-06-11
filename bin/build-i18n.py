@@ -194,6 +194,20 @@ FA = {
  'Your session has expired. Reloading…': 'نشست شما منقضی شده است. در حال بارگذاری مجدد…',
  'The export was truncated. Refine your filters to export everything.': 'خروجی بریده شد و ناقص است. برای خروجی کامل، فیلترها را محدودتر کنید.',
  'You are not allowed to manage this account.': 'شما اجازه مدیریت این حساب را ندارید.',
+ 'New customer': 'مشتری جدید',
+ 'Create order': 'ثبت سفارش',
+ 'Name, phone or email…': 'نام، موبایل یا ایمیل…',
+ 'Select customer': 'انتخاب مشتری',
+ 'Quick actions': 'دکمه‌های سریع',
+ 'Quick status buttons': 'دکمه‌های سریع وضعیت',
+ 'Stock step buttons (e.g. 1,5,10)': 'گام‌های سریع موجودی (مثلاً 1,5,10)',
+ 'Adjust stock': 'تغییر موجودی',
+ 'First name': 'نام',
+ 'Last name': 'نام خانوادگی',
+ 'Created.': 'ایجاد شد.',
+ 'Invalid stock value.': 'مقدار موجودی نامعتبر است.',
+ 'Name and phone are required.': 'نام و موبایل الزامی است.',
+ 'A customer with this phone already exists.': 'مشتری‌ای با این شماره موبایل قبلاً ثبت شده است.',
 }
 
 pattern = re.compile(r"(?:__|_e|esc_html__|esc_attr__|esc_html_e|esc_attr_e)\(\s*'((?:[^'\\]|\\.)*)'\s*,\s*'wfcp'")

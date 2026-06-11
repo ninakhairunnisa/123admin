@@ -19,9 +19,16 @@ class WFCP_Customers_Controller extends WFCP_REST_Controller {
 		$this->route(
 			'',
 			array(
-				'methods'             => WP_REST_Server::READABLE,
-				'callback'            => array( $this, 'list_customers' ),
-				'permission_callback' => $this->permission( 'wfcp_users_view' ),
+				array(
+					'methods'             => WP_REST_Server::READABLE,
+					'callback'            => array( $this, 'list_customers' ),
+					'permission_callback' => $this->permission( 'wfcp_users_view' ),
+				),
+				array(
+					'methods'             => WP_REST_Server::CREATABLE,
+					'callback'            => array( $this, 'create_customer' ),
+					'permission_callback' => $this->permission( 'wfcp_users_edit' ),
+				),
 			)
 		);
 
@@ -109,8 +116,13 @@ class WFCP_Customers_Controller extends WFCP_REST_Controller {
 
 		$search = trim( (string) $request->get_param( 'search' ) );
 		if ( '' !== $search ) {
-			$args['search']         = '*' . $search . '*';
-			$args['search_columns'] = array( 'user_login', 'user_email', 'display_name', 'user_nicename' );
+			// One unified field: matches login, email, display name, first and
+			// last name (account + billing) and billing phone all at once.
+			$ids = $this->unified_search_ids( $search );
+			if ( ! $ids ) {
+				return $this->list_response( array(), 0, 1, $pagination['per_page'] );
+			}
+			$args['include'] = $ids;
 		}
 
 		$query = new WP_User_Query( $args );
@@ -122,6 +134,110 @@ class WFCP_Customers_Controller extends WFCP_REST_Controller {
 		);
 
 		return $this->list_response( $items, (int) $query->get_total(), $pagination['page'], $pagination['per_page'] );
+	}
+
+	/**
+	 * Single-field search across user core fields plus first/last name and
+	 * billing phone metas. Phone matching ignores spaces, dashes and parens.
+	 *
+	 * @param string $term Search term.
+	 *
+	 * @return int[]
+	 */
+	private function unified_search_ids( string $term ): array {
+		global $wpdb;
+
+		$like        = '%' . $wpdb->esc_like( $term ) . '%';
+		$digits_like = '%' . $wpdb->esc_like( preg_replace( '/[\s\-()]/', '', $term ) ) . '%';
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT DISTINCT u.ID FROM {$wpdb->users} u
+				 LEFT JOIN {$wpdb->usermeta} m ON m.user_id = u.ID
+					AND m.meta_key IN ('first_name', 'last_name', 'billing_first_name', 'billing_last_name', 'billing_phone')
+				 WHERE u.user_login LIKE %s
+					OR u.user_email LIKE %s
+					OR u.display_name LIKE %s
+					OR (m.meta_key = 'billing_phone' AND REPLACE(REPLACE(REPLACE(REPLACE(m.meta_value, ' ', ''), '-', ''), '(', ''), ')', '') LIKE %s)
+					OR (m.meta_key <> 'billing_phone' AND m.meta_value LIKE %s)
+				 ORDER BY u.ID DESC
+				 LIMIT 200",
+				$like,
+				$like,
+				$like,
+				$digits_like,
+				$like
+			)
+		);
+		// phpcs:enable
+
+		return array_map( 'intval', (array) $ids );
+	}
+
+	/**
+	 * Quick customer creation for manual order entry: first name + phone are
+	 * enough; email is optional. The account gets a random password.
+	 */
+	public function create_customer( WP_REST_Request $request ) {
+		$first = sanitize_text_field( (string) $request->get_param( 'first_name' ) );
+		$last  = sanitize_text_field( (string) $request->get_param( 'last_name' ) );
+		$phone = preg_replace( '/[^0-9+]/', '', (string) $request->get_param( 'phone' ) );
+		$email = sanitize_email( (string) $request->get_param( 'email' ) );
+
+		if ( '' === $first || '' === $phone ) {
+			return new WP_Error( 'wfcp_invalid', __( 'Name and phone are required.', 'wfcp' ), array( 'status' => 400 ) );
+		}
+
+		$existing = get_users(
+			array(
+				'meta_key'   => 'billing_phone', // phpcs:ignore WordPress.DB.SlowDBQuery
+				'meta_value' => $phone, // phpcs:ignore WordPress.DB.SlowDBQuery
+				'number'     => 1,
+				'fields'     => 'ID',
+			)
+		);
+		if ( $existing ) {
+			return new WP_Error(
+				'wfcp_duplicate_phone',
+				__( 'A customer with this phone already exists.', 'wfcp' ),
+				array(
+					'status'      => 409,
+					'existing_id' => (int) $existing[0],
+				)
+			);
+		}
+
+		$username = $phone;
+		if ( username_exists( $username ) ) {
+			$username .= '-' . wp_rand( 100, 999 );
+		}
+
+		$user_id = wp_insert_user(
+			array(
+				'user_login'   => $username,
+				'user_pass'    => wp_generate_password( 24 ),
+				'user_email'   => $email,
+				'first_name'   => $first,
+				'last_name'    => $last,
+				'display_name' => trim( $first . ' ' . $last ),
+				'role'         => 'customer',
+			)
+		);
+		if ( is_wp_error( $user_id ) ) {
+			return $user_id;
+		}
+
+		update_user_meta( $user_id, 'billing_first_name', $first );
+		update_user_meta( $user_id, 'billing_last_name', $last );
+		update_user_meta( $user_id, 'billing_phone', $phone );
+		if ( $email ) {
+			update_user_meta( $user_id, 'billing_email', $email );
+		}
+
+		$this->audit( 'user.create', 'user', (int) $user_id, array( 'phone' => $phone ) );
+
+		return rest_ensure_response( $this->format_customer( get_userdata( $user_id ), true, array( 'orders' => 0, 'spent' => 0.0 ) ) );
 	}
 
 	/**
