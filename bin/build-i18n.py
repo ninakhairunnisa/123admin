@@ -193,6 +193,7 @@ FA = {
  'Too many requests. Please slow down and try again shortly.': 'تعداد درخواست‌ها زیاد است. لطفاً کمی صبر کنید و دوباره تلاش کنید.',
  'Your session has expired. Reloading…': 'نشست شما منقضی شده است. در حال بارگذاری مجدد…',
  'The export was truncated. Refine your filters to export everything.': 'خروجی بریده شد و ناقص است. برای خروجی کامل، فیلترها را محدودتر کنید.',
+ 'You are not allowed to manage this account.': 'شما اجازه مدیریت این حساب را ندارید.',
 }
 
 pattern = re.compile(r"(?:__|_e|esc_html__|esc_attr__|esc_html_e|esc_attr_e)\(\s*'((?:[^'\\]|\\.)*)'\s*,\s*'wfcp'")

@@ -106,7 +106,80 @@ abstract class WFCP_REST_Controller {
 	}
 
 	/**
+	 * Order counts per (unprefixed) status in a single GROUP BY query,
+	 * briefly cached. Works on both HPOS and legacy storage.
+	 *
+	 * @return array<string, int>
+	 */
+	protected function order_status_counts(): array {
+		$cached = get_transient( 'wfcp_status_counts' );
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery
+		$rows = $this->hpos_enabled()
+			? $wpdb->get_results( "SELECT status, COUNT(*) AS total FROM {$wpdb->prefix}wc_orders WHERE type = 'shop_order' GROUP BY status", ARRAY_A )
+			: $wpdb->get_results( "SELECT post_status AS status, COUNT(*) AS total FROM {$wpdb->posts} WHERE post_type = 'shop_order' GROUP BY post_status", ARRAY_A );
+		// phpcs:enable
+
+		$counts = array();
+		foreach ( array_keys( wc_get_order_statuses() ) as $key ) {
+			$counts[ substr( $key, 3 ) ] = 0;
+		}
+		foreach ( (array) $rows as $row ) {
+			$key = str_starts_with( (string) $row['status'], 'wc-' ) ? substr( $row['status'], 3 ) : (string) $row['status'];
+			if ( isset( $counts[ $key ] ) ) {
+				$counts[ $key ] = (int) $row['total'];
+			}
+		}
+		unset( $counts['checkout-draft'] );
+
+		set_transient( 'wfcp_status_counts', $counts, MINUTE_IN_SECONDS );
+
+		return $counts;
+	}
+
+	/**
+	 * SUM of order totals for the given prefixed statuses, optionally from a
+	 * timestamp, computed in SQL on either storage.
+	 *
+	 * @param int      $from_ts  Site-local timestamp lower bound (0 = all time).
+	 * @param string[] $statuses Prefixed statuses, e.g. ['wc-completed'].
+	 */
+	protected function sum_orders_total( int $from_ts, array $statuses ): float {
+		global $wpdb;
+
+		$placeholders = implode( ',', array_fill( 0, count( $statuses ), '%s' ) );
+		$args         = $statuses;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		if ( $this->hpos_enabled() ) {
+			$sql = "SELECT SUM(total_amount) FROM {$wpdb->prefix}wc_orders WHERE type = 'shop_order' AND status IN ({$placeholders})";
+			if ( $from_ts ) {
+				$sql   .= ' AND date_created_gmt >= %s';
+				$args[] = gmdate( 'Y-m-d H:i:s', $from_ts );
+			}
+		} else {
+			$sql = "SELECT SUM(pm.meta_value + 0) FROM {$wpdb->posts} p
+				 INNER JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = '_order_total'
+				 WHERE p.post_type = 'shop_order' AND p.post_status IN ({$placeholders})";
+			if ( $from_ts ) {
+				$sql   .= ' AND p.post_date >= %s';
+				$args[] = wp_date( 'Y-m-d H:i:s', $from_ts );
+			}
+		}
+
+		return (float) $wpdb->get_var( $wpdb->prepare( $sql, $args ) );
+		// phpcs:enable
+	}
+
+	/**
 	 * Builds a CSV string from rows (with UTF-8 BOM so Excel renders Persian correctly).
+	 * String cells starting with a formula trigger are neutralised so the file
+	 * is safe to open in Excel (CSV/formula-injection protection).
 	 *
 	 * @param string[] $headers Column headers.
 	 * @param array[]  $rows    Data rows.
@@ -116,11 +189,24 @@ abstract class WFCP_REST_Controller {
 		fwrite( $fh, "\xEF\xBB\xBF" );
 		fputcsv( $fh, $headers, ',', '"', '\\' );
 		foreach ( $rows as $row ) {
-			fputcsv( $fh, $row, ',', '"', '\\' );
+			fputcsv( $fh, array_map( array( $this, 'csv_cell' ), $row ), ',', '"', '\\' );
 		}
 		rewind( $fh );
 		$csv = stream_get_contents( $fh );
 		fclose( $fh );
 		return (string) $csv;
+	}
+
+	/**
+	 * Neutralises spreadsheet formula triggers (=, +, -, @, tab, CR) at the
+	 * start of user-influenced string cells.
+	 *
+	 * @param mixed $value Cell value.
+	 */
+	protected function csv_cell( $value ) {
+		if ( is_string( $value ) && '' !== $value && in_array( $value[0], array( '=', '+', '-', '@', "\t", "\r" ), true ) ) {
+			return "'" . $value;
+		}
+		return $value;
 	}
 }

@@ -114,9 +114,71 @@ class WFCP_Customers_Controller extends WFCP_REST_Controller {
 		}
 
 		$query = new WP_User_Query( $args );
-		$items = array_map( array( $this, 'format_customer' ), $query->get_results() );
+		$users = $query->get_results();
+		$stats = $this->bulk_stats( wp_list_pluck( $users, 'ID' ) );
+		$items = array_map(
+			fn( WP_User $user ) => $this->format_customer( $user, false, $stats[ $user->ID ] ?? array( 'orders' => 0, 'spent' => 0.0 ) ),
+			$users
+		);
 
 		return $this->list_response( $items, (int) $query->get_total(), $pagination['page'], $pagination['per_page'] );
+	}
+
+	/**
+	 * Order count + lifetime spend for a page of users in one GROUP BY query
+	 * (instead of two queries per row).
+	 *
+	 * @param int[] $user_ids User IDs.
+	 *
+	 * @return array<int, array{orders:int, spent:float}>
+	 */
+	private function bulk_stats( array $user_ids ): array {
+		$user_ids = array_filter( array_map( 'intval', $user_ids ) );
+		if ( ! $user_ids ) {
+			return array();
+		}
+
+		global $wpdb;
+
+		$paid    = array_map( static fn( $s ) => "wc-{$s}", wc_get_is_paid_statuses() );
+		$ph      = implode( ',', array_fill( 0, count( $paid ), '%s' ) );
+		$ids_sql = implode( ',', $user_ids );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $this->hpos_enabled()
+			? $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT customer_id AS uid, COUNT(*) AS orders, SUM(total_amount) AS spent
+					 FROM {$wpdb->prefix}wc_orders
+					 WHERE type = 'shop_order' AND customer_id IN ({$ids_sql}) AND status IN ({$ph})
+					 GROUP BY customer_id",
+					$paid
+				),
+				ARRAY_A
+			)
+			: $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT CAST(cm.meta_value AS UNSIGNED) AS uid, COUNT(*) AS orders, SUM(tm.meta_value + 0) AS spent
+					 FROM {$wpdb->posts} p
+					 INNER JOIN {$wpdb->postmeta} cm ON cm.post_id = p.ID AND cm.meta_key = '_customer_user' AND cm.meta_value IN ({$ids_sql})
+					 INNER JOIN {$wpdb->postmeta} tm ON tm.post_id = p.ID AND tm.meta_key = '_order_total'
+					 WHERE p.post_type = 'shop_order' AND p.post_status IN ({$ph})
+					 GROUP BY cm.meta_value",
+					$paid
+				),
+				ARRAY_A
+			);
+		// phpcs:enable
+
+		$stats = array();
+		foreach ( (array) $rows as $row ) {
+			$stats[ (int) $row['uid'] ] = array(
+				'orders' => (int) $row['orders'],
+				'spent'  => (float) $row['spent'],
+			);
+		}
+
+		return $stats;
 	}
 
 	/**
@@ -159,6 +221,9 @@ class WFCP_Customers_Controller extends WFCP_REST_Controller {
 		$user = get_userdata( (int) $request['id'] );
 		if ( ! $user ) {
 			return new WP_Error( 'wfcp_not_found', __( 'User not found.', 'wfcp' ), array( 'status' => 404 ) );
+		}
+		if ( $denied = $this->deny_unmanageable( $user ) ) { // phpcs:ignore Generic.CodeAnalysis.AssignmentInCondition
+			return $denied;
 		}
 		if ( user_can( $user, 'administrator' ) && ! current_user_can( 'administrator' ) ) {
 			return new WP_Error( 'wfcp_forbidden', __( 'Only administrators can edit administrator accounts.', 'wfcp' ), array( 'status' => 403 ) );
@@ -205,12 +270,32 @@ class WFCP_Customers_Controller extends WFCP_REST_Controller {
 	}
 
 	/**
+	 * Canonical WordPress per-user authorisation. This respects core role
+	 * hierarchies and WooCommerce's policy that shop managers may only
+	 * manage customer accounts (woocommerce_shop_manager_editable_roles),
+	 * which panel capabilities alone must never bypass.
+	 *
+	 * @param WP_User $user Target account.
+	 *
+	 * @return \WP_Error|null Error when the current user may not manage it.
+	 */
+	private function deny_unmanageable( WP_User $user ): ?WP_Error {
+		if ( ! current_user_can( 'edit_user', $user->ID ) ) {
+			return new WP_Error( 'wfcp_forbidden', __( 'You are not allowed to manage this account.', 'wfcp' ), array( 'status' => 403 ) );
+		}
+		return null;
+	}
+
+	/**
 	 * Blocks or unblocks an account.
 	 */
 	public function toggle_block( WP_REST_Request $request ) {
 		$user = get_userdata( (int) $request['id'] );
 		if ( ! $user ) {
 			return new WP_Error( 'wfcp_not_found', __( 'User not found.', 'wfcp' ), array( 'status' => 404 ) );
+		}
+		if ( $denied = $this->deny_unmanageable( $user ) ) { // phpcs:ignore Generic.CodeAnalysis.AssignmentInCondition
+			return $denied;
 		}
 		if ( user_can( $user, 'administrator' ) || $user->ID === get_current_user_id() ) {
 			return new WP_Error( 'wfcp_forbidden', __( 'This account cannot be blocked.', 'wfcp' ), array( 'status' => 403 ) );
@@ -238,6 +323,9 @@ class WFCP_Customers_Controller extends WFCP_REST_Controller {
 		if ( ! $user ) {
 			return new WP_Error( 'wfcp_not_found', __( 'User not found.', 'wfcp' ), array( 'status' => 404 ) );
 		}
+		if ( $denied = $this->deny_unmanageable( $user ) ) { // phpcs:ignore Generic.CodeAnalysis.AssignmentInCondition
+			return $denied;
+		}
 
 		$note = sanitize_textarea_field( (string) $request->get_param( 'note' ) );
 		if ( '' === $note ) {
@@ -260,7 +348,12 @@ class WFCP_Customers_Controller extends WFCP_REST_Controller {
 	/**
 	 * CSV export of customers.
 	 */
-	public function export( WP_REST_Request $request ): WP_REST_Response {
+	public function export( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$limited = wfcp()->security->rate_limit( 'export', 10, 60 );
+		if ( is_wp_error( $limited ) ) {
+			return $limited;
+		}
+
 		$request->set_param( 'per_page', 100 );
 		$rows = array();
 		$page = 1;
@@ -287,7 +380,7 @@ class WFCP_Customers_Controller extends WFCP_REST_Controller {
 	/**
 	 * Serialises a user for the SPA.
 	 */
-	private function format_customer( WP_User $user, bool $full = false ): array {
+	private function format_customer( WP_User $user, bool $full = false, ?array $stats = null ): array {
 		$last_login = (int) get_user_meta( $user->ID, 'wfcp_last_login', true );
 
 		$data = array(
@@ -300,8 +393,8 @@ class WFCP_Customers_Controller extends WFCP_REST_Controller {
 			'blocked'      => (bool) get_user_meta( $user->ID, 'wfcp_blocked', true ),
 			'registered'   => mysql2date( 'Y-m-d', $user->user_registered ),
 			'last_login'   => $last_login ? wp_date( 'Y-m-d H:i', $last_login ) : '',
-			'orders_count' => wc_get_customer_order_count( $user->ID ),
-			'total_spent'  => (float) wc_get_customer_total_spent( $user->ID ),
+			'orders_count' => null !== $stats ? $stats['orders'] : wc_get_customer_order_count( $user->ID ),
+			'total_spent'  => null !== $stats ? $stats['spent'] : (float) wc_get_customer_total_spent( $user->ID ),
 		);
 
 		if ( $full ) {

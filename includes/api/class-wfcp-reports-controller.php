@@ -87,17 +87,18 @@ class WFCP_Reports_Controller extends WFCP_REST_Controller {
 	}
 
 	/**
-	 * Sales totals bucketed by day/week/month/year.
+	 * Sales totals bucketed by day/week/month/year. Fully SQL-aggregated so
+	 * even the yearly report never hydrates order objects.
 	 */
 	public function sales( WP_REST_Request $request ): WP_REST_Response {
 		$period = (string) $request->get_param( 'period' );
 
 		$config = array(
-			'day'   => array( 'buckets' => 30, 'modifier' => 'days', 'format' => 'Y-m-d' ),
-			'week'  => array( 'buckets' => 12, 'modifier' => 'weeks', 'format' => 'o-\WW' ),
-			'month' => array( 'buckets' => 12, 'modifier' => 'months', 'format' => 'Y-m' ),
-			'year'  => array( 'buckets' => 5, 'modifier' => 'years', 'format' => 'Y' ),
-		)[ $period ] ?? array( 'buckets' => 30, 'modifier' => 'days', 'format' => 'Y-m-d' );
+			'day'   => array( 'buckets' => 30, 'modifier' => 'days', 'format' => 'Y-m-d', 'sql' => '%Y-%m-%d' ),
+			'week'  => array( 'buckets' => 12, 'modifier' => 'weeks', 'format' => 'o-\WW', 'sql' => '%x-W%v' ),
+			'month' => array( 'buckets' => 12, 'modifier' => 'months', 'format' => 'Y-m', 'sql' => '%Y-%m' ),
+			'year'  => array( 'buckets' => 5, 'modifier' => 'years', 'format' => 'Y', 'sql' => '%Y' ),
+		)[ $period ] ?? array( 'buckets' => 30, 'modifier' => 'days', 'format' => 'Y-m-d', 'sql' => '%Y-%m-%d' );
 
 		$cache_key = 'wfcp_report_sales_' . $period;
 		$data      = get_transient( $cache_key );
@@ -107,62 +108,179 @@ class WFCP_Reports_Controller extends WFCP_REST_Controller {
 
 		$tz    = wp_timezone();
 		$start = ( new DateTimeImmutable( 'today', $tz ) )->modify( '-' . ( $config['buckets'] - 1 ) . ' ' . $config['modifier'] );
+		$rows  = $this->sales_series( $config['sql'], $start->getTimestamp() );
 
-		$buckets = array();
+		$series = array();
 		for ( $i = 0; $i < $config['buckets']; $i++ ) {
-			$key             = $start->modify( "+{$i} {$config['modifier']}" )->format( $config['format'] );
-			$buckets[ $key ] = array( 'label' => $key, 'gross' => 0.0, 'net' => 0.0, 'orders' => 0, 'items' => 0 );
+			$key            = $start->modify( "+{$i} {$config['modifier']}" )->format( $config['format'] );
+			$series[ $key ] = array(
+				'label'  => $key,
+				'gross'  => (float) ( $rows[ $key ]['gross'] ?? 0 ),
+				'net'    => (float) ( $rows[ $key ]['net'] ?? 0 ),
+				'orders' => (int) ( $rows[ $key ]['orders'] ?? 0 ),
+				'items'  => (int) ( $rows[ $key ]['items'] ?? 0 ),
+			);
 		}
 
-		$orders = wc_get_orders(
-			array(
-				'limit'        => -1,
-				'status'       => array_map( static fn( $s ) => "wc-{$s}", wc_get_is_paid_statuses() ),
-				'date_created' => '>=' . $start->getTimestamp(),
-				'return'       => 'objects',
-				'type'         => 'shop_order',
-			)
-		);
+		$gross  = array_sum( array_column( $series, 'gross' ) );
+		$orders = array_sum( array_column( $series, 'orders' ) );
 
-		$gross = 0.0;
-		$items = 0;
-		foreach ( $orders as $order ) {
-			$created = $order->get_date_created();
-			if ( ! $created ) {
-				continue;
-			}
-			$key = wp_date( $config['format'], $created->getTimestamp(), $tz );
-			if ( ! isset( $buckets[ $key ] ) ) {
-				continue;
-			}
-			$total = (float) $order->get_total();
-			$net   = $total - (float) $order->get_total_tax() - (float) $order->get_shipping_total() - (float) $order->get_total_refunded();
-
-			$buckets[ $key ]['gross'] += $total;
-			$buckets[ $key ]['net']   += $net;
-			$buckets[ $key ]['items'] += $order->get_item_count();
-			++$buckets[ $key ]['orders'];
-
-			$gross += $total;
-			$items += $order->get_item_count();
-		}
-
-		$orders_count = count( $orders );
 		$data = array(
 			'period'  => $period,
-			'series'  => array_values( $buckets ),
+			'series'  => array_values( $series ),
 			'summary' => array(
 				'gross'     => $gross,
-				'net'       => array_sum( array_column( $buckets, 'net' ) ),
-				'orders'    => $orders_count,
-				'items'     => $items,
-				'avg_order' => $orders_count ? $gross / $orders_count : 0,
+				'net'       => array_sum( array_column( $series, 'net' ) ),
+				'orders'    => $orders,
+				'items'     => array_sum( array_column( $series, 'items' ) ),
+				'avg_order' => $orders ? $gross / $orders : 0,
 			),
 		);
 
 		set_transient( $cache_key, $data, 5 * MINUTE_IN_SECONDS );
 
 		return rest_ensure_response( $data );
+	}
+
+	/**
+	 * Gross/net/order/item totals per bucket via three GROUP BY queries
+	 * (totals, item quantities, refunds) on the active order storage.
+	 *
+	 * Net = total − tax − shipping − refunds; refunds are bucketed at refund
+	 * date. PHP bucket keys and MySQL DATE_FORMAT patterns are kept in sync
+	 * (e.g. PHP "o-\WW" ⇔ MySQL "%x-W%v" for ISO weeks).
+	 *
+	 * @param string $sql_format MySQL DATE_FORMAT pattern.
+	 * @param int    $from_ts    Site-local timestamp lower bound.
+	 *
+	 * @return array<string, array{gross: float, net: float, orders: int, items: int}>
+	 */
+	private function sales_series( string $sql_format, int $from_ts ): array {
+		global $wpdb;
+
+		$paid = array_map( static fn( $s ) => "wc-{$s}", wc_get_is_paid_statuses() );
+		$ph   = implode( ',', array_fill( 0, count( $paid ), '%s' ) );
+		$fmt  = str_replace( '%', '%%', $sql_format );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		if ( $this->hpos_enabled() ) {
+			// HPOS stores UTC; bucket by site-local time via the current offset.
+			$offset   = wp_timezone()->getOffset( new DateTimeImmutable( 'now' ) );
+			$from_gmt = gmdate( 'Y-m-d H:i:s', $from_ts );
+			$bucket   = "DATE_FORMAT(DATE_ADD(o.date_created_gmt, INTERVAL %d SECOND), '{$fmt}')";
+
+			$totals = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT {$bucket} AS bucket,
+					        SUM(o.total_amount) AS gross,
+					        SUM(o.total_amount - o.tax_amount - COALESCE(od.shipping_total_amount, 0)) AS net,
+					        COUNT(*) AS orders
+					 FROM {$wpdb->prefix}wc_orders o
+					 LEFT JOIN {$wpdb->prefix}wc_order_operational_data od ON od.order_id = o.id
+					 WHERE o.type = 'shop_order' AND o.status IN ({$ph}) AND o.date_created_gmt >= %s
+					 GROUP BY bucket",
+					array_merge( array( $offset ), $paid, array( $from_gmt ) )
+				),
+				ARRAY_A
+			);
+
+			$items = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT {$bucket} AS bucket, SUM(qm.meta_value) AS items
+					 FROM {$wpdb->prefix}woocommerce_order_items oi
+					 INNER JOIN {$wpdb->prefix}woocommerce_order_itemmeta qm ON qm.order_item_id = oi.order_item_id AND qm.meta_key = '_qty'
+					 INNER JOIN {$wpdb->prefix}wc_orders o ON o.id = oi.order_id AND o.type = 'shop_order' AND o.status IN ({$ph})
+					 WHERE oi.order_item_type = 'line_item' AND o.date_created_gmt >= %s
+					 GROUP BY bucket",
+					array_merge( array( $offset ), $paid, array( $from_gmt ) )
+				),
+				ARRAY_A
+			);
+
+			// HPOS refund rows carry negative totals: add them to net as-is.
+			$refunds = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT DATE_FORMAT(DATE_ADD(date_created_gmt, INTERVAL %d SECOND), '{$fmt}') AS bucket, SUM(total_amount) AS refunded
+					 FROM {$wpdb->prefix}wc_orders
+					 WHERE type = 'shop_order_refund' AND date_created_gmt >= %s
+					 GROUP BY bucket",
+					array( $offset, $from_gmt )
+				),
+				ARRAY_A
+			);
+			$refund_sign = 1;
+		} else {
+			$from_local = wp_date( 'Y-m-d H:i:s', $from_ts );
+			$bucket     = "DATE_FORMAT(p.post_date, '{$fmt}')";
+
+			$totals = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT {$bucket} AS bucket,
+					        SUM(tm.meta_value + 0) AS gross,
+					        SUM(tm.meta_value + 0 - COALESCE(xm.meta_value + 0, 0) - COALESCE(sxm.meta_value + 0, 0) - COALESCE(sm.meta_value + 0, 0)) AS net,
+					        COUNT(*) AS orders
+					 FROM {$wpdb->posts} p
+					 INNER JOIN {$wpdb->postmeta} tm ON tm.post_id = p.ID AND tm.meta_key = '_order_total'
+					 LEFT JOIN {$wpdb->postmeta} xm ON xm.post_id = p.ID AND xm.meta_key = '_order_tax'
+					 LEFT JOIN {$wpdb->postmeta} sxm ON sxm.post_id = p.ID AND sxm.meta_key = '_order_shipping_tax'
+					 LEFT JOIN {$wpdb->postmeta} sm ON sm.post_id = p.ID AND sm.meta_key = '_order_shipping'
+					 WHERE p.post_type = 'shop_order' AND p.post_status IN ({$ph}) AND p.post_date >= %s
+					 GROUP BY bucket",
+					array_merge( $paid, array( $from_local ) )
+				),
+				ARRAY_A
+			);
+
+			$items = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT {$bucket} AS bucket, SUM(qm.meta_value) AS items
+					 FROM {$wpdb->prefix}woocommerce_order_items oi
+					 INNER JOIN {$wpdb->prefix}woocommerce_order_itemmeta qm ON qm.order_item_id = oi.order_item_id AND qm.meta_key = '_qty'
+					 INNER JOIN {$wpdb->posts} p ON p.ID = oi.order_id AND p.post_type = 'shop_order' AND p.post_status IN ({$ph})
+					 WHERE oi.order_item_type = 'line_item' AND p.post_date >= %s
+					 GROUP BY bucket",
+					array_merge( $paid, array( $from_local ) )
+				),
+				ARRAY_A
+			);
+
+			// Legacy refunds store positive _refund_amount values: subtract.
+			$refunds = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT {$bucket} AS bucket, SUM(rm.meta_value + 0) AS refunded
+					 FROM {$wpdb->posts} p
+					 INNER JOIN {$wpdb->postmeta} rm ON rm.post_id = p.ID AND rm.meta_key = '_refund_amount'
+					 WHERE p.post_type = 'shop_order_refund' AND p.post_date >= %s
+					 GROUP BY bucket",
+					$from_local
+				),
+				ARRAY_A
+			);
+			$refund_sign = -1;
+		}
+		// phpcs:enable
+
+		$series = array();
+		foreach ( (array) $totals as $row ) {
+			$series[ $row['bucket'] ] = array(
+				'gross'  => (float) $row['gross'],
+				'net'    => (float) $row['net'],
+				'orders' => (int) $row['orders'],
+				'items'  => 0,
+			);
+		}
+		foreach ( (array) $items as $row ) {
+			if ( isset( $series[ $row['bucket'] ] ) ) {
+				$series[ $row['bucket'] ]['items'] = (int) $row['items'];
+			}
+		}
+		foreach ( (array) $refunds as $row ) {
+			if ( isset( $series[ $row['bucket'] ] ) ) {
+				$series[ $row['bucket'] ]['net'] += $refund_sign * (float) $row['refunded'];
+			}
+		}
+
+		return $series;
 	}
 
 	/**
