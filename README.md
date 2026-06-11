@@ -90,3 +90,7 @@ If the panel URL returns 404, re-save *Settings → Permalinks* once to flush re
 
 - WordPress 6.4+, WooCommerce 8+ (HPOS supported)
 - PHP 8.1+, MySQL 8+ / MariaDB
+
+---
+
+© [Rayan Danesh Tadbir (رایان دانش تدبیر)](https://webkernel.net) — webkernel.net. Vazirmatn font bundled under the SIL Open Font License (see `assets/fonts/OFL.txt`).

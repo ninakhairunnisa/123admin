@@ -20,6 +20,7 @@ defined( 'ABSPATH' ) || exit;
 <title><?php echo esc_html( $boot['siteName'] ); ?> – <?php esc_html_e( 'Store Panel', 'wfcp' ); ?></title>
 <link rel="manifest" href="<?php echo esc_url( $boot['panelUrl'] . 'manifest.webmanifest' ); ?>">
 <link rel="icon" href="<?php echo esc_url( WFCP_URL . 'assets/img/icon.svg' ); ?>" type="image/svg+xml">
+<link rel="preload" href="<?php echo esc_url( WFCP_URL . 'assets/fonts/Vazirmatn-Regular.woff2' ); ?>" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="<?php echo esc_url( $boot['assets']['css'] ); ?>">
 <script>window.WFCP = <?php echo wp_json_encode( $boot, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT ); ?>;</script>
 </head>

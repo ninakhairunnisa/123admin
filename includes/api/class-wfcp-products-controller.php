@@ -444,6 +444,7 @@ class WFCP_Products_Controller extends WFCP_REST_Controller {
 
 		return array(
 			'id'           => $product->get_id(),
+			'parent'       => $parent ? $parent->get_id() : 0,
 			'name'         => $parent ? $parent->get_name() : $product->get_name(),
 			'attributes'   => $product->is_type( 'variation' ) ? wc_get_formatted_variation( $product, true, false ) : '',
 			'sku'          => $product->get_sku(),

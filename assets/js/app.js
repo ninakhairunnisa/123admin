@@ -23,6 +23,56 @@
 	const money = (value) => numberFmt.format(Math.round((Number(value) || 0) * 100) / 100) + ' ' + (BOOT.currency || '');
 	const num = (value) => numberFmt.format(Number(value) || 0);
 
+	/* ---------- Dates (Jalali for fa locales, via native Intl) ---------- */
+
+	const useJalali = String(BOOT.locale || '').startsWith('fa');
+	const jDay = useJalali ? new Intl.DateTimeFormat('fa-IR-u-ca-persian', { year: 'numeric', month: '2-digit', day: '2-digit' }) : null;
+	const jShort = useJalali ? new Intl.DateTimeFormat('fa-IR-u-ca-persian', { month: '2-digit', day: '2-digit' }) : null;
+	const jMonth = useJalali ? new Intl.DateTimeFormat('fa-IR-u-ca-persian', { year: 'numeric', month: 'long' }) : null;
+	const jYear = useJalali ? new Intl.DateTimeFormat('fa-IR-u-ca-persian', { year: 'numeric' }) : null;
+
+	const parseIso = (value) => {
+		const m = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/);
+		return m ? { d: new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0)), time: m[4] ? m[4] + ':' + m[5] : '' } : null;
+	};
+
+	// 'Y-m-d' / 'Y-m-d H:i' → localized date (Jalali for fa), keeping the time.
+	function fmtDate(value) {
+		if (!value || !useJalali) return value || '';
+		const p = parseIso(value);
+		if (!p) return value;
+		return jDay.format(p.d) + (p.time ? ' ' + p.time : '');
+	}
+
+	// Short axis label (month-day).
+	function fmtDay(value) {
+		const p = parseIso(value);
+		if (!p) return String(value || '');
+		return useJalali ? jShort.format(p.d) : String(value).slice(5, 10);
+	}
+
+	// Report bucket label per period (day / week / month / year).
+	function fmtBucket(label, period) {
+		if (!useJalali) return label;
+		const s = String(label || '');
+		if ('day' === period) return fmtDate(s);
+		if ('month' === period) {
+			const m = s.match(/^(\d{4})-(\d{2})$/);
+			return m ? jMonth.format(new Date(+m[1], +m[2] - 1, 15)) : s;
+		}
+		if ('year' === period) {
+			return /^\d{4}$/.test(s) ? jYear.format(new Date(+s, 6, 1)) : s;
+		}
+		if ('week' === period) {
+			const m = s.match(/^(\d{4})-W(\d{2})$/);
+			if (!m) return s;
+			const jan4 = new Date(+m[1], 0, 4);
+			const monday = new Date(+m[1], 0, 4 - ((jan4.getDay() + 6) % 7) + (+m[2] - 1) * 7);
+			return jDay.format(monday);
+		}
+		return s;
+	}
+
 	const debounce = (fn, ms) => {
 		let timer;
 		return (...args) => {
@@ -249,14 +299,64 @@
 			$('#mi-out').addEventListener('click', () => { location.href = BOOT.logoutUrl; });
 		});
 
-		// Global search routes to the most relevant list.
+		// Global search: products + orders + customers, all at once.
 		$('#gsearch').addEventListener('keydown', (e) => {
 			if (e.key !== 'Enter') return;
-			const q = e.target.value.trim();
-			if (!q) return;
-			const target = /^\d+$/.test(q) || q.includes('@') ? 'orders' : 'products';
-			navigate('/' + target + '?search=' + encodeURIComponent(q));
+			const term = e.target.value.trim();
+			if (term) globalSearch(term);
 		});
+	}
+
+	/* ---------- Global search (products, orders, customers) ---------- */
+
+	async function globalSearch(term) {
+		const m = modal(T.search_results || T.search, '<div class="spinner"></div>');
+		const enc = encodeURIComponent(term);
+
+		const [products, orders, customers] = await Promise.all([
+			can('wfcp_products_view') ? api('/products/picker?term=' + enc).catch(() => null) : null,
+			can('wfcp_orders_view') ? api('/orders?search=' + enc + '&per_page=5').catch(() => null) : null,
+			can('wfcp_users_view') ? api('/customers?search=' + enc + '&per_page=5').catch(() => null) : null,
+		]);
+
+		const thumbHtml = (src, round) => src
+			? '<img class="thumb" loading="lazy"' + (round ? ' style="border-radius:50%"' : '') + ' src="' + esc(src) + '">'
+			: '<div class="thumb"></div>';
+
+		const section = (title, rowsHtml) => rowsHtml
+			? '<h3 style="margin:10px 0 4px">' + esc(title) + '</h3><div class="list">' + rowsHtml + '</div>'
+			: '';
+
+		const productRows = (products && products.items ? products.items.slice(0, 6) : []).map((p) =>
+			'<div class="list-item" data-go="/products/' + (p.parent || p.id) + '">' + thumbHtml(p.image) +
+			'<div class="grow"><div class="title">' + esc(p.name) + '</div>' +
+			'<div class="sub">' + esc(p.attributes || p.sku || '') + ' · ' + money(p.price) + '</div></div></div>'
+		).join('');
+
+		const orderRows = (orders && orders.items ? orders.items : []).map((o) =>
+			'<div class="list-item" data-go="/orders/' + o.id + '">' +
+			'<div class="grow"><div class="title">#' + esc(o.number) + ' – ' + esc(o.customer) + '</div>' +
+			'<div class="sub num">' + esc(fmtDate(o.date)) + ' · ' + esc(o.phone || o.email || '') + '</div></div>' +
+			statusPill(o.status) + '<strong class="num">' + money(o.total) + '</strong></div>'
+		).join('');
+
+		const customerRows = (customers && customers.items ? customers.items : []).map((c) =>
+			'<div class="list-item" data-go="/customers/' + c.id + '">' + thumbHtml(c.avatar, true) +
+			'<div class="grow"><div class="title">' + esc(c.name) + '</div>' +
+			'<div class="sub num">' + esc(c.phone || c.email || '') + '</div></div></div>'
+		).join('');
+
+		const html =
+			section(T.products, productRows) +
+			section(T.orders, orderRows) +
+			section(T.customers, customerRows);
+
+		m.querySelector('.body').innerHTML = html || '<div class="empty"><span class="ico">🔍</span>' + esc(T.no_results) + '</div>';
+
+		$$('[data-go]', m).forEach((row) => row.addEventListener('click', () => {
+			closeModal();
+			navigate(row.dataset.go);
+		}));
 	}
 
 	/* ---------- Keyboard shortcuts ---------- */
@@ -323,9 +423,10 @@
 
 	/* ---------- Tiny SVG charts ---------- */
 
-	function lineChart(series, valueKey) {
+	function lineChart(series, valueKey, labelFn) {
 		if (!series || !series.length) return '<div class="empty">' + esc(T.no_results || '–') + '</div>';
 		const W = 600, H = 180, padX = 6, padY = 16;
+		const fmt = labelFn || ((s) => fmtDay(s));
 		const values = series.map((p) => Number(p[valueKey]) || 0);
 		const max = Math.max.apply(null, values.concat([1]));
 		const stepX = (W - padX * 2) / Math.max(1, series.length - 1);
@@ -335,7 +436,7 @@
 		const labelEvery = Math.ceil(series.length / 6);
 		const labels = series.map((p, i) => i % labelEvery ? '' :
 			'<text class="axis" x="' + (padX + i * stepX).toFixed(1) + '" y="' + (H - 3) + '" text-anchor="middle">' +
-			esc(String(p.date || p.label || '').slice(5)) + '</text>'
+			esc(fmt(String(p.date || p.label || ''))) + '</text>'
 		).join('');
 		return '<div class="chart"><svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' +
 			'<polygon class="area" points="' + padX + ',' + (H - padY) + ' ' + pts.join(' ') + ' ' + (padX + (series.length - 1) * stepX).toFixed(1) + ',' + (H - padY) + '"/>' +
@@ -398,6 +499,7 @@
 		modal, closeModal, confirmDialog, toast,
 		esc, money, num, debounce, can, pager, statusPill,
 		downloadCsv, printHtml, lineChart, barChart,
+		fmtDate, fmtDay, fmtBucket, globalSearch,
 		T, BOOT, $, $$,
 	};
 })();
