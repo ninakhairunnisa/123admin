@@ -52,68 +52,43 @@ class WFCP_Dashboard_Controller extends WFCP_REST_Controller {
 			$month_start   = new DateTimeImmutable( 'first day of this month 00:00', $tz );
 			$chart_start   = $today_start->modify( '-29 days' );
 
-			$orders = wc_get_orders(
-				array(
-					'limit'        => -1,
-					'status'       => array_merge( $paid_statuses, array( 'wc-pending', 'wc-on-hold' ) ),
-					'date_created' => '>=' . $chart_start->getTimestamp(),
-					'return'       => 'objects',
-				)
-			);
-
-			$paid_keys = wc_get_is_paid_statuses();
-			$series    = array();
+			// All KPIs are aggregated in SQL; no order objects are hydrated.
+			$rows   = $this->chart_rows( $chart_start->getTimestamp(), $paid_statuses );
+			$series = array();
 			for ( $i = 0; $i < 30; $i++ ) {
 				$key            = $chart_start->modify( "+{$i} days" )->format( 'Y-m-d' );
-				$series[ $key ] = array( 'date' => $key, 'sales' => 0.0, 'orders' => 0 );
+				$series[ $key ] = array(
+					'date'   => $key,
+					'sales'  => (float) ( $rows[ $key ]['sales'] ?? 0 ),
+					'orders' => (int) ( $rows[ $key ]['orders'] ?? 0 ),
+				);
 			}
 
-			$sales_today  = 0.0;
-			$sales_week   = 0.0;
-			$sales_month  = 0.0;
-			$orders_today = 0;
-
-			foreach ( $orders as $order ) {
-				$created = $order->get_date_created();
-				if ( ! $created ) {
-					continue;
-				}
-				$local = $created->date_i18n( 'Y-m-d' );
-				$total = (float) $order->get_total();
-				$paid  = in_array( $order->get_status(), $paid_keys, true );
-
-				if ( isset( $series[ $local ] ) ) {
-					++$series[ $local ]['orders'];
-					if ( $paid ) {
-						$series[ $local ]['sales'] += $total;
-					}
-				}
-				if ( $local >= $today_start->format( 'Y-m-d' ) ) {
-					++$orders_today;
-					if ( $paid ) {
-						$sales_today += $total;
-					}
-				}
-				if ( $paid && $local >= $week_start->format( 'Y-m-d' ) ) {
-					$sales_week += $total;
-				}
-				if ( $paid && $local >= $month_start->format( 'Y-m-d' ) ) {
-					$sales_month += $total;
+			$today_key  = $today_start->format( 'Y-m-d' );
+			$week_key   = $week_start->format( 'Y-m-d' );
+			$sales_week = 0.0;
+			foreach ( $series as $key => $bucket ) {
+				if ( $key >= $week_key ) {
+					$sales_week += $bucket['sales'];
 				}
 			}
+
+			$counts = $this->order_status_counts();
 
 			$data = array(
 				'sales'      => array(
-					'today'         => $sales_today,
+					'today'         => $series[ $today_key ]['sales'],
 					'week'          => $sales_week,
-					'month'         => $sales_month,
+					// Month-to-date as its own SUM: on the 31st the month start
+					// falls outside the 30-day chart window.
+					'month'         => $this->sum_orders_total( $month_start->getTimestamp(), $paid_statuses ),
 					'total_revenue' => $this->total_revenue(),
 				),
 				'orders'     => array(
-					'today'      => $orders_today,
-					'pending'    => $this->count_orders( array( 'wc-pending', 'wc-on-hold' ) ),
-					'processing' => $this->count_orders( array( 'wc-processing' ) ),
-					'completed'  => $this->count_orders( array( 'wc-completed' ) ),
+					'today'      => $series[ $today_key ]['orders'],
+					'pending'    => ( $counts['pending'] ?? 0 ) + ( $counts['on-hold'] ?? 0 ),
+					'processing' => $counts['processing'] ?? 0,
+					'completed'  => $counts['completed'] ?? 0,
 				),
 				'customers'  => $this->customers_count(),
 				'stock'      => $this->stock_counts(),
@@ -164,53 +139,75 @@ class WFCP_Dashboard_Controller extends WFCP_REST_Controller {
 		return $ids ? (int) $ids[0] : 0;
 	}
 
-	private function count_orders( array $statuses ): int {
-		$result = wc_get_orders(
-			array(
-				'limit'    => 1,
-				'status'   => $statuses,
-				'paginate' => true,
-				'return'   => 'ids',
-			)
-		);
-		return (int) $result->total;
+	/**
+	 * Per-day sales (paid statuses) and order counts (paid plus pending and
+	 * on-hold) for the chart window, aggregated in one SQL query per storage.
+	 *
+	 * @param int      $from_ts       Site-local timestamp of the first chart day.
+	 * @param string[] $paid_statuses Prefixed paid statuses.
+	 *
+	 * @return array<string, array{sales: float, orders: int}> Keyed by Y-m-d.
+	 */
+	private function chart_rows( int $from_ts, array $paid_statuses ): array {
+		global $wpdb;
+
+		$all_statuses = array_values( array_unique( array_merge( $paid_statuses, array( 'wc-pending', 'wc-on-hold' ) ) ) );
+		$paid_ph      = implode( ',', array_fill( 0, count( $paid_statuses ), '%s' ) );
+		$all_ph       = implode( ',', array_fill( 0, count( $all_statuses ), '%s' ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		if ( $this->hpos_enabled() ) {
+			// HPOS stores UTC; bucket by site-local day via the current offset.
+			$offset = wp_timezone()->getOffset( new DateTimeImmutable( 'now' ) );
+			$rows   = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT DATE_FORMAT(DATE_ADD(date_created_gmt, INTERVAL %d SECOND), '%%Y-%%m-%%d') AS bucket,
+					        SUM(CASE WHEN status IN ({$paid_ph}) THEN total_amount ELSE 0 END) AS sales,
+					        COUNT(*) AS orders
+					 FROM {$wpdb->prefix}wc_orders
+					 WHERE type = 'shop_order' AND status IN ({$all_ph}) AND date_created_gmt >= %s
+					 GROUP BY bucket",
+					array_merge( array( $offset ), $paid_statuses, $all_statuses, array( gmdate( 'Y-m-d H:i:s', $from_ts ) ) )
+				),
+				ARRAY_A
+			);
+		} else {
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT DATE_FORMAT(p.post_date, '%%Y-%%m-%%d') AS bucket,
+					        SUM(CASE WHEN p.post_status IN ({$paid_ph}) THEN pm.meta_value + 0 ELSE 0 END) AS sales,
+					        COUNT(*) AS orders
+					 FROM {$wpdb->posts} p
+					 INNER JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = '_order_total'
+					 WHERE p.post_type = 'shop_order' AND p.post_status IN ({$all_ph}) AND p.post_date >= %s
+					 GROUP BY bucket",
+					array_merge( $paid_statuses, $all_statuses, array( wp_date( 'Y-m-d H:i:s', $from_ts ) ) )
+				),
+				ARRAY_A
+			);
+		}
+		// phpcs:enable
+
+		$buckets = array();
+		foreach ( (array) $rows as $row ) {
+			$buckets[ $row['bucket'] ] = array(
+				'sales'  => (float) $row['sales'],
+				'orders' => (int) $row['orders'],
+			);
+		}
+
+		return $buckets;
 	}
 
 	/**
-	 * Lifetime revenue via a single SQL SUM (loading every order object into
-	 * memory does not scale on large stores).
+	 * Lifetime revenue via a single SQL SUM, briefly cached.
 	 */
 	private function total_revenue(): float {
-		global $wpdb;
-
 		$key   = 'wfcp_total_revenue';
 		$total = get_transient( $key );
 
 		if ( false === $total ) {
-			$paid         = array_map( static fn( $s ) => "wc-{$s}", wc_get_is_paid_statuses() );
-			$placeholders = implode( ',', array_fill( 0, count( $paid ), '%s' ) );
-
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			if ( $this->hpos_enabled() ) {
-				$total = (float) $wpdb->get_var(
-					$wpdb->prepare(
-						"SELECT SUM(total_amount) FROM {$wpdb->prefix}wc_orders
-						 WHERE type = 'shop_order' AND status IN ({$placeholders})",
-						$paid
-					)
-				);
-			} else {
-				$total = (float) $wpdb->get_var(
-					$wpdb->prepare(
-						"SELECT SUM(pm.meta_value + 0) FROM {$wpdb->posts} p
-						 INNER JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = '_order_total'
-						 WHERE p.post_type = 'shop_order' AND p.post_status IN ({$placeholders})",
-						$paid
-					)
-				);
-			}
-			// phpcs:enable
-
+			$total = $this->sum_orders_total( 0, array_map( static fn( $s ) => "wc-{$s}", wc_get_is_paid_statuses() ) );
 			set_transient( $key, $total, 10 * MINUTE_IN_SECONDS );
 		}
 

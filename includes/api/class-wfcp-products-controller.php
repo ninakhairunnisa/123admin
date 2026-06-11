@@ -424,7 +424,12 @@ class WFCP_Products_Controller extends WFCP_REST_Controller {
 	/**
 	 * CSV export of the (filtered) product list.
 	 */
-	public function export( WP_REST_Request $request ): WP_REST_Response {
+	public function export( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$limited = wfcp()->security->rate_limit( 'export', 10, 60 );
+		if ( is_wp_error( $limited ) ) {
+			return $limited;
+		}
+
 		$request->set_param( 'per_page', 100 );
 		$rows = array();
 		$page = 1;

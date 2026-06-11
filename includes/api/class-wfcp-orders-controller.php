@@ -279,20 +279,18 @@ class WFCP_Orders_Controller extends WFCP_REST_Controller {
 	 * Status counts for the filter chips.
 	 */
 	public function counts(): WP_REST_Response {
-		$counts = array();
-		foreach ( array_diff( array_keys( wc_get_order_statuses() ), array( 'wc-checkout-draft' ) ) as $status ) {
-			$result = wc_get_orders(
-				array(
-					'limit'    => 1,
-					'status'   => array( $status ),
-					'paginate' => true,
-					'return'   => 'ids',
-					'type'     => 'shop_order',
-				)
-			);
-			$counts[ substr( $status, 3 ) ] = (int) $result->total;
-		}
-		return rest_ensure_response( $counts );
+		return rest_ensure_response( $this->order_status_counts() );
+	}
+
+	/**
+	 * Whitelists and sanitises an address payload before it reaches
+	 * WC_Order::set_address(); unknown keys are dropped defensively.
+	 *
+	 * @param array $address Raw address fields.
+	 */
+	private function sanitize_address( array $address ): array {
+		$allowed = array( 'first_name', 'last_name', 'company', 'address_1', 'address_2', 'city', 'state', 'postcode', 'country', 'email', 'phone' );
+		return array_map( 'sanitize_text_field', array_intersect_key( $address, array_flip( $allowed ) ) );
 	}
 
 	/**
@@ -310,7 +308,7 @@ class WFCP_Orders_Controller extends WFCP_REST_Controller {
 			$order->set_customer_id( (int) $params['customer_id'] );
 		}
 		if ( ! empty( $params['billing'] ) && is_array( $params['billing'] ) ) {
-			$order->set_address( array_map( 'sanitize_text_field', $params['billing'] ), 'billing' );
+			$order->set_address( $this->sanitize_address( $params['billing'] ), 'billing' );
 		}
 		foreach ( (array) ( $params['items'] ?? array() ) as $item ) {
 			$product = wc_get_product( (int) ( $item['product_id'] ?? 0 ) );
@@ -350,7 +348,7 @@ class WFCP_Orders_Controller extends WFCP_REST_Controller {
 		$params = (array) $request->get_json_params();
 		foreach ( array( 'billing', 'shipping' ) as $type ) {
 			if ( ! empty( $params[ $type ] ) && is_array( $params[ $type ] ) ) {
-				$order->set_address( array_map( 'sanitize_text_field', $params[ $type ] ), $type );
+				$order->set_address( $this->sanitize_address( $params[ $type ] ), $type );
 			}
 		}
 		if ( isset( $params['customer_note'] ) ) {
@@ -549,7 +547,12 @@ class WFCP_Orders_Controller extends WFCP_REST_Controller {
 	/**
 	 * CSV export of the (filtered) order list.
 	 */
-	public function export( WP_REST_Request $request ): WP_REST_Response {
+	public function export( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$limited = wfcp()->security->rate_limit( 'export', 10, 60 );
+		if ( is_wp_error( $limited ) ) {
+			return $limited;
+		}
+
 		$request->set_param( 'per_page', 100 );
 		$rows = array();
 		$page = 1;

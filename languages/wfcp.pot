@@ -2,8 +2,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: 123Admin 1.0.0\n"
 "Report-Msgid-Bugs-To: https://github.com/ninakhairunnisa/123admin/issues\n"
-"POT-Creation-Date: 2026-06-11 01:32+0000\n"
-"PO-Revision-Date: 2026-06-11 01:32+0000\n"
+"POT-Creation-Date: 2026-06-11 02:06+0000\n"
+"PO-Revision-Date: 2026-06-11 02:06+0000\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -19,68 +19,72 @@ msgstr ""
 msgid "Your account has been suspended. Please contact the store."
 msgstr ""
 
-#: includes/api/class-wfcp-customers-controller.php:128
-#: includes/api/class-wfcp-customers-controller.php:161
-#: includes/api/class-wfcp-customers-controller.php:213
+#: includes/api/class-wfcp-customers-controller.php:190
+#: includes/api/class-wfcp-customers-controller.php:223
+#: includes/api/class-wfcp-customers-controller.php:295
 msgid "User not found."
 msgstr ""
 
-#: includes/api/class-wfcp-customers-controller.php:164
+#: includes/api/class-wfcp-customers-controller.php:229
 msgid "Only administrators can edit administrator accounts."
 msgstr ""
 
-#: includes/api/class-wfcp-customers-controller.php:194
+#: includes/api/class-wfcp-customers-controller.php:259
 msgid "Unknown role."
 msgstr ""
 
-#: includes/api/class-wfcp-customers-controller.php:197
+#: includes/api/class-wfcp-customers-controller.php:262
 msgid "You cannot assign this role."
 msgstr ""
 
-#: includes/api/class-wfcp-customers-controller.php:216
+#: includes/api/class-wfcp-customers-controller.php:284
+msgid "You are not allowed to manage this account."
+msgstr ""
+
+#: includes/api/class-wfcp-customers-controller.php:301
 msgid "This account cannot be blocked."
 msgstr ""
 
-#: includes/api/class-wfcp-customers-controller.php:244
-#: includes/api/class-wfcp-orders-controller.php:435
+#: includes/api/class-wfcp-customers-controller.php:332
+#: includes/api/class-wfcp-orders-controller.php:433
 msgid "Note cannot be empty."
 msgstr ""
 
-#: includes/api/class-wfcp-dashboard-controller.php:274
-#: includes/api/class-wfcp-orders-controller.php:584
+#: includes/api/class-wfcp-dashboard-controller.php:271
+#: includes/api/class-wfcp-orders-controller.php:587
 #: includes/class-wfcp-i18n.php:151
 msgid "Guest"
 msgstr ""
 
-#: includes/api/class-wfcp-orders-controller.php:336
-#: includes/api/class-wfcp-orders-controller.php:347
-#: includes/api/class-wfcp-orders-controller.php:372
+#: includes/api/class-wfcp-orders-controller.php:334
+#: includes/api/class-wfcp-orders-controller.php:345
+#: includes/api/class-wfcp-orders-controller.php:370
 msgid "Order not found."
 msgstr ""
 
-#: includes/api/class-wfcp-orders-controller.php:377
+#: includes/api/class-wfcp-orders-controller.php:375
 msgid "Invalid order status."
 msgstr ""
 
-#: includes/api/class-wfcp-orders-controller.php:452
+#: includes/api/class-wfcp-orders-controller.php:450
 msgid "Order or product not found."
 msgstr ""
 
-#: includes/api/class-wfcp-orders-controller.php:475
+#: includes/api/class-wfcp-orders-controller.php:473
 msgid "Order item not found."
 msgstr ""
 
-#: includes/api/class-wfcp-orders-controller.php:519
+#: includes/api/class-wfcp-orders-controller.php:517
 msgid "Select between 1 and 200 orders."
 msgstr ""
 
-#: includes/api/class-wfcp-orders-controller.php:522
+#: includes/api/class-wfcp-orders-controller.php:520
 #: includes/api/class-wfcp-products-controller.php:303
 #: includes/api/class-wfcp-rest-controller.php:42
 msgid "You do not have permission to do this."
 msgstr ""
 
-#: includes/api/class-wfcp-orders-controller.php:539
+#: includes/api/class-wfcp-orders-controller.php:537
 #: includes/api/class-wfcp-products-controller.php:344
 msgid "Unknown bulk action."
 msgstr ""
@@ -107,15 +111,15 @@ msgstr ""
 msgid "Variation not found."
 msgstr ""
 
-#: includes/api/class-wfcp-products-controller.php:466
+#: includes/api/class-wfcp-products-controller.php:471
 msgid "You do not have permission to change prices."
 msgstr ""
 
-#: includes/api/class-wfcp-products-controller.php:469
+#: includes/api/class-wfcp-products-controller.php:474
 msgid "You do not have permission to change stock."
 msgstr ""
 
-#: includes/api/class-wfcp-reports-controller.php:405
+#: includes/api/class-wfcp-reports-controller.php:523
 msgid "Unknown report type."
 msgstr ""
 
