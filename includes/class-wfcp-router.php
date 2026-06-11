@@ -144,11 +144,12 @@ class WFCP_Router {
 				'avatar' => get_avatar_url( $user->ID, array( 'size' => 64 ) ),
 			),
 			'caps'       => $this->capabilities->current_user_caps(),
-			'statuses'   => wfcp()->has_woocommerce() ? wc_get_order_statuses() : array(),
+			'statuses'   => $this->order_statuses(),
 			'i18n'       => WFCP_I18n::strings(),
 			'assets'     => array(
-				'css' => $this->asset_url( 'assets/css/panel.css' ),
-				'js'  => array(
+				'css'  => $this->asset_url( 'assets/css/panel.css' ),
+				'icon' => WFCP_URL . 'assets/img/icon.svg',
+				'js'   => array(
 					$this->asset_url( 'assets/js/app.js' ),
 					$this->asset_url( 'assets/js/views.js' ),
 				),
@@ -180,7 +181,6 @@ class WFCP_Router {
 	private function serve_service_worker(): void {
 		header( 'Content-Type: application/javascript; charset=utf-8' );
 		header( 'Service-Worker-Allowed: /' );
-		$css = wp_json_encode( WFCP_URL . 'assets/css/panel.css' );
 		// App-shell cache only; API responses are always network-first.
 		echo "const CACHE='wfcp-v" . esc_js( WFCP_VERSION ) . "';
 self.addEventListener('install',e=>{self.skipWaiting();});
@@ -210,6 +210,17 @@ self.addEventListener('fetch',e=>{
 				'theme_color'      => '#6750a4',
 				'icons'            => array(
 					array(
+						'src'   => WFCP_URL . 'assets/img/icon-192.png',
+						'sizes' => '192x192',
+						'type'  => 'image/png',
+					),
+					array(
+						'src'     => WFCP_URL . 'assets/img/icon-512.png',
+						'sizes'   => '512x512',
+						'type'    => 'image/png',
+						'purpose' => 'any maskable',
+					),
+					array(
 						'src'   => WFCP_URL . 'assets/img/icon.svg',
 						'sizes' => 'any',
 						'type'  => 'image/svg+xml',
@@ -217,5 +228,17 @@ self.addEventListener('fetch',e=>{
 				),
 			)
 		);
+	}
+
+	/**
+	 * Order statuses exposed to the SPA, without internal checkout drafts.
+	 */
+	private function order_statuses(): array {
+		if ( ! wfcp()->has_woocommerce() ) {
+			return array();
+		}
+		$statuses = wc_get_order_statuses();
+		unset( $statuses['wc-checkout-draft'] );
+		return $statuses;
 	}
 }

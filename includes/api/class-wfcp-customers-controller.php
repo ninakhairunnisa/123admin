@@ -277,8 +277,9 @@ class WFCP_Customers_Controller extends WFCP_REST_Controller {
 
 		return rest_ensure_response(
 			array(
-				'filename' => 'customers-' . gmdate( 'Ymd-His' ) . '.csv',
-				'csv'      => $this->to_csv( array( 'ID', 'Name', 'Email', 'Phone', 'Role', 'Orders', 'Total spent', 'Registered' ), $rows ),
+				'filename'  => 'customers-' . gmdate( 'Ymd-His' ) . '.csv',
+				'csv'       => $this->to_csv( array( 'ID', 'Name', 'Email', 'Phone', 'Role', 'Orders', 'Total spent', 'Registered' ), $rows ),
+				'truncated' => count( $rows ) < (int) $batch['total'],
 			)
 		);
 	}

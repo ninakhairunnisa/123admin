@@ -98,6 +98,14 @@ abstract class WFCP_REST_Controller {
 	}
 
 	/**
+	 * Whether WooCommerce HPOS (custom order tables) is the active order storage.
+	 */
+	protected function hpos_enabled(): bool {
+		return class_exists( \Automattic\WooCommerce\Utilities\OrderUtil::class )
+			&& \Automattic\WooCommerce\Utilities\OrderUtil::custom_orders_table_usage_is_enabled();
+	}
+
+	/**
 	 * Builds a CSV string from rows (with UTF-8 BOM so Excel renders Persian correctly).
 	 *
 	 * @param string[] $headers Column headers.
@@ -106,9 +114,9 @@ abstract class WFCP_REST_Controller {
 	protected function to_csv( array $headers, array $rows ): string {
 		$fh = fopen( 'php://temp', 'r+' );
 		fwrite( $fh, "\xEF\xBB\xBF" );
-		fputcsv( $fh, $headers );
+		fputcsv( $fh, $headers, ',', '"', '\\' );
 		foreach ( $rows as $row ) {
-			fputcsv( $fh, $row );
+			fputcsv( $fh, $row, ',', '"', '\\' );
 		}
 		rewind( $fh );
 		$csv = stream_get_contents( $fh );
