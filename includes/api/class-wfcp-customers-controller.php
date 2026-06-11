@@ -67,6 +67,15 @@ class WFCP_Customers_Controller extends WFCP_REST_Controller {
 		);
 
 		$this->route(
+			'/(?P<id>\d+)/sms',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( $this, 'send_sms' ),
+				'permission_callback' => $this->permission( 'wfcp_users_edit' ),
+			)
+		);
+
+		$this->route(
 			'/(?P<id>\d+)/notes',
 			array(
 				'methods'             => WP_REST_Server::CREATABLE,
@@ -429,6 +438,26 @@ class WFCP_Customers_Controller extends WFCP_REST_Controller {
 		$this->audit( $block ? 'user.block' : 'user.unblock', 'user', $user->ID );
 
 		return rest_ensure_response( array( 'blocked' => $block ) );
+	}
+
+	/**
+	 * Sends a quick SMS to the customer's billing phone via the installed
+	 * gateway plugin (e.g. Persian WooCommerce SMS).
+	 */
+	public function send_sms( WP_REST_Request $request ) {
+		$user = get_userdata( (int) $request['id'] );
+		if ( ! $user ) {
+			return new WP_Error( 'wfcp_not_found', __( 'User not found.', 'wfcp' ), array( 'status' => 404 ) );
+		}
+
+		$result = WFCP_SMS::send( (string) get_user_meta( $user->ID, 'billing_phone', true ), (string) $request->get_param( 'message' ) );
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+
+		$this->audit( 'sms.send', 'user', $user->ID );
+
+		return rest_ensure_response( array( 'sent' => true ) );
 	}
 
 	/**

@@ -1,5 +1,6 @@
 === 123Admin – Fast Control Panel for WooCommerce ===
-Contributors: 123admin
+Contributors: webkernel
+Author: Rayan Danesh Tadbir — https://webkernel.net
 Tags: woocommerce, admin, panel, dashboard, orders, products, rtl
 Requires at least: 6.4
 Tested up to: 6.7

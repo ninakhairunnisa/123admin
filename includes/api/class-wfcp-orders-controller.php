@@ -105,6 +105,15 @@ class WFCP_Orders_Controller extends WFCP_REST_Controller {
 		);
 
 		$this->route(
+			'/(?P<id>\d+)/sms',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( $this, 'send_sms' ),
+				'permission_callback' => $this->permission( 'wfcp_orders_edit' ),
+			)
+		);
+
+		$this->route(
 			'/(?P<id>\d+)/items',
 			array(
 				'methods'             => WP_REST_Server::CREATABLE,
@@ -452,6 +461,27 @@ class WFCP_Orders_Controller extends WFCP_REST_Controller {
 		$this->audit( 'order.note', 'order', $order->get_id() );
 
 		return $this->list_notes( $request );
+	}
+
+	/**
+	 * Sends a quick SMS to the order's billing phone via the installed
+	 * gateway plugin (e.g. Persian WooCommerce SMS).
+	 */
+	public function send_sms( WP_REST_Request $request ) {
+		$order = wc_get_order( (int) $request['id'] );
+		if ( ! $order instanceof WC_Order ) {
+			return new WP_Error( 'wfcp_not_found', __( 'Order not found.', 'wfcp' ), array( 'status' => 404 ) );
+		}
+
+		$result = WFCP_SMS::send( $order->get_billing_phone(), (string) $request->get_param( 'message' ) );
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+
+		$order->add_order_note( sprintf( '[123Admin SMS] %s', sanitize_textarea_field( (string) $request->get_param( 'message' ) ) ) );
+		$this->audit( 'sms.send', 'order', $order->get_id() );
+
+		return rest_ensure_response( array( 'sent' => true ) );
 	}
 
 	/**

@@ -113,6 +113,7 @@ class WFCP_I18n {
 			'manage_stock'        => __( 'Manage stock', 'wfcp' ),
 			'stock_status'        => __( 'Stock status', 'wfcp' ),
 			'in_stock'            => __( 'In stock', 'wfcp' ),
+			'on_backorder'        => __( 'On backorder', 'wfcp' ),
 			'categories'          => __( 'Categories', 'wfcp' ),
 			'tags'                => __( 'Tags', 'wfcp' ),
 			'short_desc'          => __( 'Short description', 'wfcp' ),
@@ -167,6 +168,10 @@ class WFCP_I18n {
 			'first_name'          => __( 'First name', 'wfcp' ),
 			'last_name'           => __( 'Last name', 'wfcp' ),
 			'created'             => __( 'Created.', 'wfcp' ),
+			'send_sms'            => __( 'Send SMS', 'wfcp' ),
+			'sms_sent'            => __( 'SMS sent.', 'wfcp' ),
+			'sms_message'         => __( 'Message text', 'wfcp' ),
+			'search_results'      => __( 'Search results', 'wfcp' ),
 
 			// Customers.
 			'total_spent'         => __( 'Total spent', 'wfcp' ),

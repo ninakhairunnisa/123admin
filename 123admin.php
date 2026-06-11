@@ -1,10 +1,12 @@
 <?php
 /**
  * Plugin Name:       123Admin – Fast Control Panel for WooCommerce
- * Plugin URI:        https://github.com/ninakhairunnisa/123admin
+ * Plugin URI:        https://webkernel.net
  * Description:       A blazing-fast, standalone, mobile-first control panel for WooCommerce stores. Manage products, orders, customers and reports without loading wp-admin.
  * Version:           1.0.0
- * Author:            123Admin
+ * Author:            Rayan Danesh Tadbir (رایان دانش تدبیر)
+ * Author URI:        https://webkernel.net
+ * Copyright:         © Rayan Danesh Tadbir — webkernel.net
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       wfcp

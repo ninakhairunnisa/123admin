@@ -5,7 +5,10 @@
 	'use strict';
 
 	const A = window.WFCPApp;
-	const { api, route, navigate, modal, closeModal, confirmDialog, toast, esc, money, num, debounce, can, pager, statusPill, downloadCsv, printHtml, lineChart, barChart, T, BOOT } = A;
+	const { api, route, navigate, modal, closeModal, confirmDialog, toast, esc, money, num, debounce, can, pager, statusPill, downloadCsv, printHtml, lineChart, barChart, fmtDate, fmtBucket, T, BOOT } = A;
+
+	// Persian labels for raw WooCommerce stock-status keys.
+	const STOCK_LABELS = { instock: T.in_stock, outofstock: T.out_of_stock, onbackorder: T.on_backorder };
 
 	const q = (sel, ctx) => (ctx || document).querySelector(sel);
 	const qa = (sel, ctx) => Array.from((ctx || document).querySelectorAll(sel));
@@ -44,14 +47,14 @@
 			(d.recent.length ? d.recent.map((o) =>
 				'<div class="list-item" data-order="' + o.id + '"><div class="grow">' +
 				'<div class="title">#' + esc(o.number) + ' – ' + esc(o.customer) + '</div>' +
-				'<div class="sub">' + esc(o.date) + '</div></div>' +
+				'<div class="sub">' + esc(fmtDate(o.date)) + '</div></div>' +
 				statusPill(o.status) + '<strong class="num">' + money(o.total) + '</strong></div>'
 			).join('') : '<div class="empty">' + esc(T.no_results) + '</div>') +
 			'</div></div>' +
 			'<div class="card"><h3>' + esc(T.recent_activity) + '</h3><div class="list">' +
 			(d.activity && d.activity.length ? d.activity.map((a2) =>
 				'<div class="list-item"><div class="grow"><div class="title">' + esc(a2.action) + '</div>' +
-				'<div class="sub">' + esc(a2.user_name) + ' · ' + esc((a2.created_at || '').replace('T', ' ').slice(0, 16)) + '</div></div></div>'
+				'<div class="sub">' + esc(a2.user_name) + ' · ' + esc(fmtDate(a2.created_at)) + '</div></div></div>'
 			).join('') : '<div class="empty">' + esc(T.no_results) + '</div>') +
 			'</div></div></div>';
 
@@ -339,7 +342,7 @@
 			'<div class="field"><label>' + esc(T.sku) + '</label><input id="ep-sku" value="' + esc(p.sku) + '"></div>' +
 			'<div class="field"><label>' + esc(T.stock) + '</label><input id="ep-stock" type="number" value="' + esc(p.stock === null ? '' : p.stock) + '"' + disabledStock + '></div>' +
 			'<div class="field"><label>' + esc(T.stock_status) + '</label><select id="ep-sstatus"' + disabledStock + '>' +
-			['instock', 'outofstock', 'onbackorder'].map((s) => '<option value="' + s + '"' + (p.stock_status === s ? ' selected' : '') + '>' + s + '</option>').join('') +
+			['instock', 'outofstock', 'onbackorder'].map((s) => '<option value="' + s + '"' + (p.stock_status === s ? ' selected' : '') + '>' + esc(STOCK_LABELS[s] || s) + '</option>').join('') +
 			'</select></div></div>' +
 			'<div class="field"><label>' + esc(T.categories) + '</label><select id="ep-cats" multiple size="4">' +
 			tax.categories.map((c) => '<option value="' + c.id + '"' + (p.categories.includes(c.id) ? ' selected' : '') + '>' + esc(c.name) + '</option>').join('') +
@@ -484,7 +487,7 @@
 					'<td><input type="checkbox" class="o-check" data-id="' + o.id + '"></td>' +
 					'<td><strong>#' + esc(o.number) + '</strong><div class="muted">' + num(o.items_count) + ' ×</div></td>' +
 					'<td>' + esc(o.customer) + '<div class="muted num">' + esc(o.phone || o.email || '') + '</div></td>' +
-					'<td class="num">' + esc(o.date) + '</td>' +
+					'<td class="num">' + esc(fmtDate(o.date)) + '</td>' +
 					'<td>' + statusPill(o.status) + '</td>' +
 					(canQuick ? '<td class="qa-cell">' + quickFor(o) + '</td>' : '') +
 					'<td class="num tot">' + money(o.total) + '</td>' +
@@ -750,6 +753,7 @@
 			'<h1>' + esc(T.order) + ' #' + esc(o.number) + '</h1>' + statusPill(o.status) +
 			(can('wfcp_orders_print') ? '<button class="btn tonal sm" id="od-print">🖨 ' + esc(T.invoice) + '</button>' +
 				'<button class="btn outline sm" id="od-label">🏷 ' + esc(T.shipping_label) + '</button>' : '') +
+			(BOOT.sms && o.phone && can('wfcp_orders_edit') ? '<button class="btn tonal sm" id="od-sms">✉ ' + esc(T.send_sms) + '</button>' : '') +
 			'</div>' +
 			'<div class="grid two">' +
 			'<div class="card"><h3>' + esc(T.order_items) + '</h3><div id="od-items"></div>' +
@@ -821,7 +825,7 @@
 				? '<div class="list">' + notes.items.map((n) =>
 					'<div class="list-item" style="cursor:default"><div class="grow">' +
 					'<div class="title" style="white-space:normal">' + esc(n.content) + '</div>' +
-					'<div class="sub">' + esc(n.author || '') + ' · ' + esc(n.date) + '</div></div></div>'
+					'<div class="sub">' + esc(n.author || '') + ' · ' + esc(fmtDate(n.date)) + '</div></div></div>'
 				).join('') + '</div>'
 				: '<div class="muted">' + esc(T.no_results) + '</div>';
 		};
@@ -883,13 +887,36 @@
 					'<p style="font-size:16px;line-height:1.9">' + billing + '</p>';
 			}
 			return '<h2>' + esc(BOOT.siteName) + ' – ' + esc(T.invoice) + '</h2>' +
-				'<p>' + esc(T.order) + ' #' + esc(o.number) + ' · ' + esc(o.date) + '</p><p>' + billing + '</p>' +
+				'<p>' + esc(T.order) + ' #' + esc(o.number) + ' · ' + esc(fmtDate(o.date)) + '</p><p>' + billing + '</p>' +
 				'<table><tr><th>' + esc(T.name) + '</th><th>' + esc(T.quantity) + '</th><th>' + esc(T.total) + '</th></tr>' +
 				o.items.map((it) => '<tr><td>' + esc(it.name) + '</td><td>' + num(it.quantity) + '</td><td>' + money(it.total) + '</td></tr>').join('') +
 				'<tr><td colspan="2"><strong>' + esc(T.total) + '</strong></td><td><strong>' + money(o.total) + '</strong></td></tr></table>';
 		};
 		if (q('#od-print')) q('#od-print').addEventListener('click', () => printHtml(invoiceHtml('invoice')));
 		if (q('#od-label')) q('#od-label').addEventListener('click', () => printHtml(invoiceHtml('label')));
+		if (q('#od-sms')) q('#od-sms').addEventListener('click', () => smsModal('/orders/' + id + '/sms', o.phone));
+	}
+
+	// Quick SMS to a customer's phone via the installed gateway plugin.
+	function smsModal(endpoint, phone) {
+		const m = modal(T.send_sms,
+			'<div class="muted num" style="margin-bottom:8px">' + esc(phone || '') + '</div>' +
+			'<div class="field"><label>' + esc(T.sms_message) + '</label><textarea id="sms-text" rows="4"></textarea></div>',
+			'<button class="btn outline" data-close>' + esc(T.cancel) + '</button>' +
+			'<button class="btn" id="sms-send">' + esc(T.send_sms) + '</button>');
+
+		q('#sms-send', m).addEventListener('click', async () => {
+			const message = q('#sms-text', m).value.trim();
+			if (!message) return;
+			q('#sms-send', m).disabled = true;
+			try {
+				await api(endpoint, { method: 'POST', body: { message } });
+				closeModal();
+				toast(T.sms_sent, 'success');
+			} catch (err) {
+				q('#sms-send', m).disabled = false;
+			}
+		});
 	}
 
 	/* ============================== CUSTOMERS ============================== */
@@ -921,7 +948,7 @@
 					'<td><strong>' + esc(c.name) + '</strong>' + (c.blocked ? ' <span class="status-pill cancelled">' + esc(T.blocked) + '</span>' : '') + '</td>' +
 					'<td class="num">' + esc(c.email) + '</td><td>' + esc(c.role) + '</td>' +
 					'<td class="num">' + num(c.orders_count) + '</td><td class="num">' + money(c.total_spent) + '</td>' +
-					'<td class="num">' + esc(c.last_login || T.never) + '</td></tr>'
+					'<td class="num">' + esc(c.last_login ? fmtDate(c.last_login) : T.never) + '</td></tr>'
 				).join('') + '</tbody></table></div>'
 				: '<div class="empty"><span class="ico">👤</span>' + esc(T.no_results) + '</div>';
 			host.appendChild(pager(data, (page) => { state.page = page; load(); }));
@@ -949,12 +976,13 @@
 			(c.blocked ? '<span class="status-pill cancelled">' + esc(T.blocked) + '</span>' : '') +
 			(can('wfcp_users_block') ? '<button class="btn ' + (c.blocked ? 'tonal' : 'danger') + ' sm" id="cd-block">' +
 				esc(c.blocked ? T.unblock : T.block) + '</button>' : '') +
+			(BOOT.sms && c.phone && can('wfcp_users_edit') ? '<button class="btn tonal sm" id="cd-sms">✉ ' + esc(T.send_sms) + '</button>' : '') +
 			'</div>' +
 			'<div class="grid stats">' +
 			'<div class="stat"><div class="label">' + esc(T.total_spent) + '</div><div class="value">' + money(c.total_spent) + '</div></div>' +
 			'<div class="stat"><div class="label">' + esc(T.orders_count) + '</div><div class="value">' + num(c.orders_count) + '</div></div>' +
-			'<div class="stat"><div class="label">' + esc(T.registered) + '</div><div class="value">' + esc(c.registered) + '</div></div>' +
-			'<div class="stat"><div class="label">' + esc(T.last_login) + '</div><div class="value">' + esc(c.last_login || T.never) + '</div></div>' +
+			'<div class="stat"><div class="label">' + esc(T.registered) + '</div><div class="value">' + esc(fmtDate(c.registered)) + '</div></div>' +
+			'<div class="stat"><div class="label">' + esc(T.last_login) + '</div><div class="value">' + esc(c.last_login ? fmtDate(c.last_login) : T.never) + '</div></div>' +
 			'</div>' +
 			'<div class="grid two mt">' +
 			'<div class="card"><h3>' + esc(T.edit) + '</h3>' +
@@ -967,14 +995,14 @@
 			'<h3 class="mt">' + esc(T.address) + '</h3>' +
 			'<div class="muted">' + esc([c.billing.address_1, c.billing.city, c.billing.postcode].filter(Boolean).join(', ') || '–') + '</div>' +
 			'<h3 class="mt">' + esc(T.notes) + '</h3><div id="cd-notes">' +
-			(c.notes.length ? c.notes.map((n) => '<div class="list-item" style="cursor:default"><div class="grow"><div class="title" style="white-space:normal">' + esc(n.note) + '</div><div class="sub">' + esc(n.author) + ' · ' + esc(n.date) + '</div></div></div>').join('') : '<div class="muted">–</div>') +
+			(c.notes.length ? c.notes.map((n) => '<div class="list-item" style="cursor:default"><div class="grow"><div class="title" style="white-space:normal">' + esc(n.note) + '</div><div class="sub">' + esc(n.author) + ' · ' + esc(fmtDate(n.date)) + '</div></div></div>').join('') : '<div class="muted">–</div>') +
 			'</div>' +
 			(editable ? '<div class="row mt"><input id="cd-note" style="flex:1" placeholder="' + esc(T.add_note) + '…"><button class="btn sm" id="cd-addnote">' + esc(T.add_note) + '</button></div>' : '') +
 			'</div>' +
 			'<div class="card"><h3>' + esc(T.orders) + '</h3><div class="list">' +
 			(c.orders.length ? c.orders.map((o) =>
 				'<div class="list-item" data-order="' + o.id + '"><div class="grow"><div class="title">#' + esc(o.number) + '</div>' +
-				'<div class="sub">' + esc(o.date) + '</div></div>' + statusPill(o.status) + '<strong class="num">' + money(o.total) + '</strong></div>'
+				'<div class="sub">' + esc(fmtDate(o.date)) + '</div></div>' + statusPill(o.status) + '<strong class="num">' + money(o.total) + '</strong></div>'
 			).join('') : '<div class="empty">' + esc(T.no_results) + '</div>') +
 			'</div></div></div>';
 
@@ -1002,6 +1030,8 @@
 			toast(T.saved, 'success');
 			A.render();
 		});
+
+		if (q('#cd-sms')) q('#cd-sms').addEventListener('click', () => smsModal('/customers/' + id + '/sms', c.phone));
 
 		if (q('#cd-addnote')) q('#cd-addnote').addEventListener('click', async () => {
 			const note = q('#cd-note').value.trim();
@@ -1065,9 +1095,9 @@
 				'<div class="stat"><div class="label">' + esc(T.items_sold) + '</div><div class="value">' + num(data.summary.items) + '</div></div>' +
 				'<div class="stat"><div class="label">' + esc(T.avg_order) + '</div><div class="value">' + money(data.summary.avg_order) + '</div></div>' +
 				'</div>' +
-				'<div class="card mt">' + lineChart(data.series, 'gross') + '</div>' +
+				'<div class="card mt">' + lineChart(data.series, 'gross', (l) => fmtBucket(l, period)) + '</div>' +
 				'<div class="mt">' + table([T.date, T.gross_sales, T.net_sales, T.orders, T.items_sold],
-					data.series.map((r) => [esc(r.label), '<span class="num">' + money(r.gross) + '</span>', '<span class="num">' + money(r.net) + '</span>', num(r.orders), num(r.items)])) + '</div>';
+					data.series.map((r) => [esc(fmtBucket(r.label, period)), '<span class="num">' + money(r.gross) + '</span>', '<span class="num">' + money(r.net) + '</span>', num(r.orders), num(r.items)])) + '</div>';
 			qa('[data-period]', body).forEach((chip) => chip.addEventListener('click', () =>
 				navigate('/reports?tab=sales&period=' + chip.dataset.period)
 			));
@@ -1090,7 +1120,7 @@
 		} else if (tab === 'audit') {
 			const data = await api('/reports/audit?per_page=50');
 			body.innerHTML = table([T.date, T.name, T.actions, 'IP'],
-				data.items.map((r) => ['<span class="num">' + esc((r.created_at || '').replace('T', ' ').slice(0, 16)) + '</span>', esc(r.user_name), esc(r.action + (r.object_id ? ' #' + r.object_id : '')), '<span class="num">' + esc(r.ip) + '</span>']));
+				data.items.map((r) => ['<span class="num">' + esc(fmtDate(r.created_at)) + '</span>', esc(r.user_name), esc(r.action + (r.object_id ? ' #' + r.object_id : '')), '<span class="num">' + esc(r.ip) + '</span>']));
 		}
 	});
 

@@ -3,6 +3,29 @@
  * Uses CSS logical properties so fa_IR (RTL) and en (LTR) share one stylesheet.
  */
 
+/* ---------- Vazirmatn webfont (bundled, OFL) ---------- */
+@font-face {
+	font-family: "Vazirmatn";
+	src: url("../fonts/Vazirmatn-Regular.woff2") format("woff2");
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+}
+@font-face {
+	font-family: "Vazirmatn";
+	src: url("../fonts/Vazirmatn-Medium.woff2") format("woff2");
+	font-weight: 500 600;
+	font-style: normal;
+	font-display: swap;
+}
+@font-face {
+	font-family: "Vazirmatn";
+	src: url("../fonts/Vazirmatn-Bold.woff2") format("woff2");
+	font-weight: 700 900;
+	font-style: normal;
+	font-display: swap;
+}
+
 /* ---------- Design tokens ---------- */
 :root {
 	--md-primary: #6750a4;
@@ -147,7 +170,13 @@ img { max-width: 100%; }
 		width: var(--nav-width); padding-block: 12px;
 		overflow-y: auto;
 	}
-	.main { margin-inline-start: var(--nav-width); }
+	/* Push the content area beside the fixed rail; without this the
+	   centered main slides underneath the sidebar. */
+	.main {
+		margin-inline-start: var(--nav-width) !important;
+		width: calc(100% - var(--nav-width));
+		max-width: 1100px;
+	}
 	.nav-label-mobile { display: none; }
 }
 @media (max-width: 899.98px) {
@@ -168,8 +197,7 @@ img { max-width: 100%; }
 
 .main {
 	flex: 1; padding: calc(var(--appbar-h) + 16px) 16px 32px;
-	max-width: 1280px; width: 100%;
-	margin-inline: auto;
+	width: 100%;
 	animation: fadein .18s ease;
 }
 @keyframes fadein { from { opacity: 0; transform: translateY(4px); } }

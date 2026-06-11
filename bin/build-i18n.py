@@ -208,6 +208,15 @@ FA = {
  'Invalid stock value.': 'مقدار موجودی نامعتبر است.',
  'Name and phone are required.': 'نام و موبایل الزامی است.',
  'A customer with this phone already exists.': 'مشتری‌ای با این شماره موبایل قبلاً ثبت شده است.',
+ 'On backorder': 'پیش‌سفارش',
+ 'Send SMS': 'ارسال پیامک',
+ 'SMS sent.': 'پیامک ارسال شد.',
+ 'Message text': 'متن پیام',
+ 'Search results': 'نتایج جستجو',
+ 'Customer has no phone number.': 'شماره موبایلی برای مشتری ثبت نشده است.',
+ 'Message text is required.': 'متن پیام الزامی است.',
+ 'SMS could not be sent.': 'ارسال پیامک ناموفق بود.',
+ 'No SMS gateway plugin found.': 'افزونه درگاه پیامک یافت نشد.',
 }
 
 pattern = re.compile(r"(?:__|_e|esc_html__|esc_attr__|esc_html_e|esc_attr_e)\(\s*'((?:[^'\\]|\\.)*)'\s*,\s*'wfcp'")
