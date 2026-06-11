@@ -155,6 +155,19 @@ class WFCP_I18n {
 			'subtotal'            => __( 'Subtotal', 'wfcp' ),
 			'tax'                 => __( 'Tax', 'wfcp' ),
 
+			// Quick actions / manual order entry.
+			'new_customer'        => __( 'New customer', 'wfcp' ),
+			'create_order'        => __( 'Create order', 'wfcp' ),
+			'customer_search_ph'  => __( 'Name, phone or email…', 'wfcp' ),
+			'select_customer'     => __( 'Select customer', 'wfcp' ),
+			'quick_actions'       => __( 'Quick actions', 'wfcp' ),
+			'quick_status_set'    => __( 'Quick status buttons', 'wfcp' ),
+			'quick_stock_set'     => __( 'Stock step buttons (e.g. 1,5,10)', 'wfcp' ),
+			'adjust_stock'        => __( 'Adjust stock', 'wfcp' ),
+			'first_name'          => __( 'First name', 'wfcp' ),
+			'last_name'           => __( 'Last name', 'wfcp' ),
+			'created'             => __( 'Created.', 'wfcp' ),
+
 			// Customers.
 			'total_spent'         => __( 'Total spent', 'wfcp' ),
 			'orders_count'        => __( 'Orders', 'wfcp' ),

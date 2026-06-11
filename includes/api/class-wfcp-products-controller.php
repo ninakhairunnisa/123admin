@@ -50,6 +50,27 @@ class WFCP_Products_Controller extends WFCP_REST_Controller {
 		);
 
 		$this->route(
+			'/picker',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'picker' ),
+				'permission_callback' => $this->permission( 'wfcp_products_view' ),
+				'args'                => array(
+					'term' => array( 'type' => 'string', 'default' => '' ),
+				),
+			)
+		);
+
+		$this->route(
+			'/(?P<id>\d+)/stock',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( $this, 'adjust_stock' ),
+				'permission_callback' => $this->permission( 'wfcp_products_stock' ),
+			)
+		);
+
+		$this->route(
 			'/taxonomies',
 			array(
 				'methods'             => WP_REST_Server::READABLE,
@@ -352,6 +373,123 @@ class WFCP_Products_Controller extends WFCP_REST_Controller {
 	}
 
 	/**
+	 * Lightweight product picker for order entry: searches name and SKU and
+	 * expands variable products into their purchasable variations, each with
+	 * an image, so a sellable item can be chosen with one tap.
+	 */
+	public function picker( WP_REST_Request $request ): WP_REST_Response {
+		$term = trim( (string) $request->get_param( 'term' ) );
+
+		if ( '' !== $term ) {
+			$ids   = $this->ids_by_sku( $term );
+			$query = new WP_Query(
+				array(
+					'post_type'      => 'product',
+					'post_status'    => 'publish',
+					's'              => $term,
+					'posts_per_page' => 10,
+					'fields'         => 'ids',
+					'no_found_rows'  => true,
+				)
+			);
+			$ids = array_values( array_unique( array_merge( $ids, array_map( 'intval', $query->posts ) ) ) );
+		} else {
+			// Empty term: most recent products, so the picker is useful instantly.
+			$query = new WP_Query(
+				array(
+					'post_type'      => 'product',
+					'post_status'    => 'publish',
+					'posts_per_page' => 10,
+					'fields'         => 'ids',
+					'orderby'        => 'date',
+					'order'          => 'DESC',
+					'no_found_rows'  => true,
+				)
+			);
+			$ids = array_map( 'intval', $query->posts );
+		}
+
+		$items = array();
+		foreach ( array_slice( $ids, 0, 15 ) as $id ) {
+			$product = wc_get_product( $id );
+			if ( ! $product ) {
+				continue;
+			}
+			if ( $product->is_type( 'variable' ) ) {
+				foreach ( array_slice( $product->get_children(), 0, 30 ) as $child_id ) {
+					$variation = wc_get_product( $child_id );
+					if ( $variation && $variation->is_purchasable() ) {
+						$items[] = $this->picker_item( $variation, $product );
+					}
+				}
+			} elseif ( $product->is_type( 'variation' ) ) {
+				$parent  = wc_get_product( $product->get_parent_id() );
+				$items[] = $this->picker_item( $product, $parent ?: null );
+			} else {
+				$items[] = $this->picker_item( $product, null );
+			}
+			if ( count( $items ) >= 30 ) {
+				break;
+			}
+		}
+
+		return rest_ensure_response( array( 'items' => $items ) );
+	}
+
+	/**
+	 * Serialises a sellable item (product or variation) for the picker.
+	 */
+	private function picker_item( WC_Product $product, ?WC_Product $parent ): array {
+		$image_id = $product->get_image_id() ?: ( $parent ? $parent->get_image_id() : 0 );
+
+		return array(
+			'id'           => $product->get_id(),
+			'name'         => $parent ? $parent->get_name() : $product->get_name(),
+			'attributes'   => $product->is_type( 'variation' ) ? wc_get_formatted_variation( $product, true, false ) : '',
+			'sku'          => $product->get_sku(),
+			'price'        => (float) $product->get_price(),
+			'stock'        => $product->get_stock_quantity(),
+			'stock_status' => $product->get_stock_status(),
+			'image'        => $image_id ? (string) wp_get_attachment_image_url( $image_id, 'woocommerce_gallery_thumbnail' ) : '',
+		);
+	}
+
+	/**
+	 * One-tap stock adjustment (delta steps or absolute set) for a product
+	 * or a single variation.
+	 */
+	public function adjust_stock( WP_REST_Request $request ) {
+		$product = wc_get_product( (int) $request['id'] );
+		if ( ! $product ) {
+			return new WP_Error( 'wfcp_not_found', __( 'Product not found.', 'wfcp' ), array( 'status' => 404 ) );
+		}
+
+		$set   = $request->get_param( 'set' );
+		$delta = (int) $request->get_param( 'delta' );
+
+		if ( null !== $set && '' !== $set ) {
+			$product->set_manage_stock( true );
+			$product->set_stock_quantity( max( 0, (int) $set ) );
+		} elseif ( 0 !== $delta ) {
+			$product->set_manage_stock( true );
+			$product->set_stock_quantity( max( 0, (int) $product->get_stock_quantity() + $delta ) );
+		} else {
+			return new WP_Error( 'wfcp_invalid', __( 'Invalid stock value.', 'wfcp' ), array( 'status' => 400 ) );
+		}
+
+		$product->save();
+		$this->audit( 'product.stock', 'product', $product->get_id(), array( 'stock' => $product->get_stock_quantity() ) );
+
+		return rest_ensure_response(
+			array(
+				'id'           => $product->get_id(),
+				'stock'        => $product->get_stock_quantity(),
+				'stock_status' => $product->get_stock_status(),
+			)
+		);
+	}
+
+	/**
 	 * Lists variations of a variable product.
 	 */
 	public function list_variations( WP_REST_Request $request ) {
@@ -364,9 +502,11 @@ class WFCP_Products_Controller extends WFCP_REST_Controller {
 		foreach ( $product->get_children() as $child_id ) {
 			$variation = wc_get_product( $child_id );
 			if ( $variation ) {
-				$items[] = array(
+				$image_id = $variation->get_image_id() ?: $product->get_image_id();
+				$items[]  = array(
 					'id'            => $variation->get_id(),
 					'attributes'    => wc_get_formatted_variation( $variation, true, false ),
+					'image'         => $image_id ? (string) wp_get_attachment_image_url( $image_id, 'woocommerce_gallery_thumbnail' ) : '',
 					'sku'           => $variation->get_sku(),
 					'regular_price' => $variation->get_regular_price(),
 					'sale_price'    => $variation->get_sale_price(),

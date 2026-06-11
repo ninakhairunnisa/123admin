@@ -139,7 +139,9 @@
 					'<td><strong>' + esc(p.name) + '</strong>' + (p.on_sale ? ' <span class="status-pill completed">' + esc(T.on_sale) + '</span>' : '') + '</td>' +
 					'<td class="num">' + esc(p.sku || '–') + '</td>' +
 					'<td class="num">' + (p.sale_price ? '<s class="muted">' + money(p.regular_price) + '</s> ' + money(p.sale_price) : money(p.regular_price || p.price)) + '</td>' +
-					'<td class="num">' + (p.manage_stock ? num(p.stock) : esc(p.stock_status === 'instock' ? (T.in_stock || '✓') : (T.out_of_stock || '✕'))) + '</td>' +
+					'<td class="num">' + (can('wfcp_products_stock') && (p.manage_stock || p.type === 'variable')
+						? '<button class="stock-btn" data-stockbtn="' + p.id + '">' + (p.type === 'variable' ? '≡' : num(p.stock)) + '</button>'
+						: (p.manage_stock ? num(p.stock) : esc(p.stock_status === 'instock' ? (T.in_stock || '✓') : (T.out_of_stock || '✕')))) + '</td>' +
 					'<td>' + esc(p.status === 'publish' ? T.publish : T.draft) + '</td>' +
 					'<td class="num">' + num(p.total_sales) + ' 🛒</td></tr>'
 				).join('') + '</tbody></table></div>';
@@ -159,6 +161,13 @@
 			}));
 			qa('tbody tr', host).forEach((tr) => tr.addEventListener('click', (e) => {
 				if (e.target.closest('input')) return;
+				const stockBtn = e.target.closest('[data-stockbtn]');
+				if (stockBtn) {
+					const p = data.items.find((it) => it.id === parseInt(stockBtn.dataset.stockbtn, 10));
+					if (p && p.type === 'variable') openVariations(p.id);
+					else if (p) stockModal(p, load);
+					return;
+				}
 				openProduct(parseInt(tr.dataset.id, 10), load);
 			}));
 			renderBulk();
@@ -221,6 +230,68 @@
 
 		load();
 	});
+
+	function thumb(src) {
+		return src ? '<img class="thumb" loading="lazy" src="' + esc(src) + '">' : '<div class="thumb"></div>';
+	}
+
+	// One-tap stock editor with configurable step buttons (works for simple
+	// products and single variations).
+	function stockModal(p, onDone) {
+		const steps = (BOOT.quickStock && BOOT.quickStock.length ? BOOT.quickStock : [1, 5, 10]);
+		const m = modal((T.adjust_stock || 'Stock'),
+			'<div class="stepper">' + thumb(p.image) +
+			'<div><div style="font-weight:700">' + esc(p.name) + '</div>' +
+			(p.attributes ? '<div class="muted">' + esc(p.attributes) + '</div>' : '') + '</div></div>' +
+			'<div class="stepper mt"><input id="st-qty" type="number" min="0" value="' + (p.stock == null ? 0 : p.stock) + '"></div>' +
+			'<div class="chips mt" style="justify-content:center">' +
+			steps.map((s) => '<button class="chip" data-d="-' + s + '">−' + num(s) + '</button>').join('') +
+			steps.map((s) => '<button class="chip" data-d="' + s + '">+' + num(s) + '</button>').join('') +
+			'</div>',
+			'<button class="btn outline" data-close>' + esc(T.cancel) + '</button>' +
+			'<button class="btn" id="st-save">' + esc(T.save) + '</button>');
+
+		qa('[data-d]', m).forEach((b) => b.addEventListener('click', () => {
+			const input = q('#st-qty', m);
+			input.value = Math.max(0, (parseInt(input.value, 10) || 0) + parseInt(b.dataset.d, 10));
+		}));
+		q('#st-save', m).addEventListener('click', async () => {
+			await api('/products/' + p.id + '/stock', { method: 'POST', body: { set: q('#st-qty', m).value } });
+			closeModal();
+			toast(T.saved, 'success');
+			onDone();
+		});
+	}
+
+	// Variations editor: image, price and stock per variation, with one-tap
+	// stock stepping via the configured quick steps.
+	async function openVariations(productId) {
+		const vars = await api('/products/' + productId + '/variations');
+		const canStock = can('wfcp_products_stock');
+		const m = modal(T.variations,
+			'<div class="table-wrap"><table class="data" style="min-width:0"><thead><tr><th></th><th>' + esc(T.name) + '</th><th>' + esc(T.regular_price) + '</th><th>' + esc(T.sale_price) + '</th><th>' + esc(T.stock) + '</th><th></th></tr></thead><tbody>' +
+			vars.items.map((v) =>
+				'<tr><td>' + thumb(v.image) + '</td><td>' + esc(v.attributes) + '</td>' +
+				'<td><input type="number" step="any" style="width:84px" value="' + esc(v.regular_price) + '" data-f="regular_price" data-id="' + v.id + '"></td>' +
+				'<td><input type="number" step="any" style="width:84px" value="' + esc(v.sale_price) + '" data-f="sale_price" data-id="' + v.id + '"></td>' +
+				'<td class="num">' + (canStock
+					? '<button class="stock-btn" data-vstock="' + v.id + '">' + (v.manage_stock ? num(v.stock || 0) : '∞') + '</button>'
+					: (v.manage_stock ? num(v.stock || 0) : '∞')) + '</td>' +
+				'<td><button class="btn sm tonal" data-save="' + v.id + '">' + esc(T.save) + '</button></td></tr>'
+			).join('') + '</tbody></table></div>');
+
+		qa('[data-save]', m).forEach((b) => b.addEventListener('click', async () => {
+			const vid = b.dataset.save;
+			const body = {};
+			qa('input[data-id="' + vid + '"]', m).forEach((inp) => { body[inp.dataset.f] = inp.value; });
+			await api('/products/variations/' + vid, { method: 'PUT', body });
+			toast(T.saved, 'success');
+		}));
+		qa('[data-vstock]', m).forEach((b) => b.addEventListener('click', () => {
+			const v = vars.items.find((it) => it.id === parseInt(b.dataset.vstock, 10));
+			if (v) stockModal({ id: v.id, name: v.attributes, attributes: v.sku, image: v.image, stock: v.stock }, () => openVariations(productId));
+		}));
+	}
 
 	function quickCreateProduct(onDone) {
 		const m = modal(T.add_product,
@@ -333,25 +404,7 @@
 			onDone();
 		});
 
-		if (q('#ep-vars', m)) q('#ep-vars', m).addEventListener('click', async () => {
-			const vars = await api('/products/' + id + '/variations');
-			modal(T.variations,
-				'<div class="table-wrap"><table class="data"><thead><tr><th>' + esc(T.name) + '</th><th>' + esc(T.regular_price) + '</th><th>' + esc(T.sale_price) + '</th><th>' + esc(T.stock) + '</th><th></th></tr></thead><tbody>' +
-				vars.items.map((v) =>
-					'<tr><td>' + esc(v.attributes) + '</td>' +
-					'<td><input type="number" step="any" style="width:90px" value="' + esc(v.regular_price) + '" data-f="regular_price" data-id="' + v.id + '"></td>' +
-					'<td><input type="number" step="any" style="width:90px" value="' + esc(v.sale_price) + '" data-f="sale_price" data-id="' + v.id + '"></td>' +
-					'<td><input type="number" style="width:70px" value="' + esc(v.stock === null ? '' : v.stock) + '" data-f="stock_quantity" data-id="' + v.id + '"></td>' +
-					'<td><button class="btn sm tonal" data-save="' + v.id + '">' + esc(T.save) + '</button></td></tr>'
-				).join('') + '</tbody></table></div>');
-			qa('[data-save]').forEach((b) => b.addEventListener('click', async () => {
-				const vid = b.dataset.save;
-				const body = {};
-				qa('input[data-id="' + vid + '"]').forEach((inp) => { body[inp.dataset.f] = inp.value; });
-				await api('/products/variations/' + vid, { method: 'PUT', body });
-				toast(T.saved, 'success');
-			}));
-		});
+		if (q('#ep-vars', m)) q('#ep-vars', m).addEventListener('click', () => openVariations(id));
 	}
 
 	/* ============================== ORDERS ============================== */
@@ -369,6 +422,7 @@
 
 		main.innerHTML =
 			'<div class="page-head"><h1>' + esc(T.orders) + '</h1>' +
+			(can('wfcp_orders_create') ? '<button class="btn" id="o-new">＋ ' + esc(T.new_order) + '</button>' : '') +
 			(can('wfcp_reports_export') ? '<button class="btn tonal sm" id="o-export">⬇ ' + esc(T.export_csv) + '</button>' : '') +
 			'</div>' +
 			'<input class="search-input" id="o-search" type="search" placeholder="' + esc(T.order_search_ph) + '" value="' + esc(state.search) + '">' +
@@ -413,11 +467,18 @@
 				renderBulk();
 				return;
 			}
+			const canQuick = can('wfcp_orders_status');
+			const quickFor = (o) => (BOOT.quickStatus || [])
+				.filter((s) => s !== o.status && BOOT.statuses['wc-' + s])
+				.map((s) => '<button class="chip qbtn" data-qs="' + esc(s) + '" data-oid="' + o.id + '">' + esc(BOOT.statuses['wc-' + s]) + '</button>')
+				.join('');
+
 			host.innerHTML =
 				'<div class="table-wrap"><table class="data"><thead><tr>' +
 				'<th><input type="checkbox" id="o-all"></th>' +
 				'<th>' + esc(T.order) + '</th><th>' + esc(T.customer) + '</th><th>' + esc(T.date) + '</th>' +
-				'<th>' + esc(T.status) + '</th><th>' + esc(T.total) + '</th><th>' + esc(T.payment) + '</th></tr></thead><tbody>' +
+				'<th>' + esc(T.status) + '</th>' + (canQuick ? '<th>' + esc(T.quick_actions) + '</th>' : '') +
+				'<th>' + esc(T.total) + '</th><th>' + esc(T.payment) + '</th></tr></thead><tbody>' +
 				data.items.map((o) =>
 					'<tr data-id="' + o.id + '">' +
 					'<td><input type="checkbox" class="o-check" data-id="' + o.id + '"></td>' +
@@ -425,9 +486,18 @@
 					'<td>' + esc(o.customer) + '<div class="muted num">' + esc(o.phone || o.email || '') + '</div></td>' +
 					'<td class="num">' + esc(o.date) + '</td>' +
 					'<td>' + statusPill(o.status) + '</td>' +
+					(canQuick ? '<td class="qa-cell">' + quickFor(o) + '</td>' : '') +
 					'<td class="num tot">' + money(o.total) + '</td>' +
 					'<td>' + esc(o.payment_method || '–') + '</td></tr>'
 				).join('') + '</tbody></table></div>';
+
+			qa('[data-qs]', host).forEach((b) => b.addEventListener('click', async (e) => {
+				e.stopPropagation();
+				b.disabled = true;
+				await api('/orders/' + b.dataset.oid + '/status', { method: 'PUT', body: { status: b.dataset.qs } });
+				toast(T.saved, 'success');
+				load();
+			}));
 
 			host.appendChild(pager(data, (page) => { state.page = page; load(); }));
 
@@ -497,8 +567,176 @@
 			downloadCsv(await api('/orders/export?' + query));
 		});
 
+		if (q('#o-new')) q('#o-new').addEventListener('click', () => newOrderModal());
+
 		load();
 	});
+
+	/**
+	 * Mobile-first manual order entry: one unified customer search field
+	 * (name, family name, phone, email — all matched at once), inline
+	 * new-customer creation, image-based product picker with variation
+	 * support, and one-tap initial status.
+	 */
+	function newOrderModal() {
+		const state = { customer: null, items: [], status: 'pending', creating: false };
+		const statuses = ['pending'].concat((BOOT.quickStatus || []).filter((s) => s !== 'pending' && BOOT.statuses['wc-' + s]));
+
+		const m = modal(T.new_order,
+			'<h3 style="margin:0 0 8px">' + esc(T.customer) + '</h3>' +
+			'<div id="no-cust-sel"></div>' +
+			'<div id="no-cust-search-wrap">' +
+			'<input class="search-input" id="no-cust-search" autocomplete="off" placeholder="' + esc(T.customer_search_ph) + '">' +
+			'<div class="list" id="no-cust-results"></div>' +
+			'<button class="btn tonal sm mt" id="no-cust-newbtn">＋ ' + esc(T.new_customer) + '</button>' +
+			'<div id="no-cust-new" style="display:none">' +
+			'<div class="row mt"><div class="field"><label>' + esc(T.first_name) + '</label><input id="nc-first"></div>' +
+			'<div class="field"><label>' + esc(T.last_name) + '</label><input id="nc-last"></div></div>' +
+			'<div class="row"><div class="field"><label>' + esc(T.phone) + '</label><input id="nc-phone" type="tel" dir="ltr"></div>' +
+			'<div class="field"><label>' + esc(T.email) + '</label><input id="nc-email" type="email" dir="ltr"></div></div>' +
+			'</div></div>' +
+			'<h3 style="margin:14px 0 8px">' + esc(T.order_items) + '</h3>' +
+			'<div id="no-items" class="list"></div>' +
+			'<input class="search-input mt" id="no-prod-search" autocomplete="off" placeholder="' + esc(T.search) + '…">' +
+			'<div class="list" id="no-prod-results"></div>' +
+			'<h3 style="margin:14px 0 8px">' + esc(T.status) + '</h3>' +
+			'<div class="chips" id="no-status">' +
+			statuses.map((s) => '<button class="chip' + (s === state.status ? ' active' : '') + '" data-st="' + esc(s) + '">' + esc(BOOT.statuses['wc-' + s] || s) + '</button>').join('') +
+			'</div>',
+			'<button class="btn outline" data-close>' + esc(T.cancel) + '</button>' +
+			'<button class="btn" id="no-submit" disabled>' + esc(T.create_order) + '</button>');
+
+		const refreshSubmit = () => {
+			const hasCustomer = !!state.customer || (state.creating && q('#nc-first', m).value.trim() && q('#nc-phone', m).value.trim());
+			q('#no-submit', m).disabled = !(hasCustomer && state.items.length);
+		};
+
+		const renderCustomer = () => {
+			const sel = q('#no-cust-sel', m);
+			const wrap = q('#no-cust-search-wrap', m);
+			if (state.customer) {
+				sel.innerHTML = '<span class="sel-chip">' +
+					(state.customer.avatar ? '<img src="' + esc(state.customer.avatar) + '">' : '') +
+					esc(state.customer.name) + ' <span class="num">' + esc(state.customer.phone || '') + '</span>' +
+					'<button id="no-cust-clear" aria-label="✕">✕</button></span>';
+				wrap.style.display = 'none';
+				q('#no-cust-clear', m).addEventListener('click', () => {
+					state.customer = null;
+					sel.innerHTML = '';
+					wrap.style.display = '';
+					refreshSubmit();
+				});
+			}
+			refreshSubmit();
+		};
+
+		q('#no-cust-search', m).addEventListener('input', debounce(async (e) => {
+			const term = e.target.value.trim();
+			if (term.length < 2) { q('#no-cust-results', m).innerHTML = ''; return; }
+			const results = await api('/customers?search=' + encodeURIComponent(term) + '&per_page=8');
+			q('#no-cust-results', m).innerHTML = results.items.map((c) =>
+				'<div class="list-item" data-cid="' + c.id + '">' +
+				'<img class="thumb" style="border-radius:50%" src="' + esc(c.avatar) + '">' +
+				'<div class="grow"><div class="title">' + esc(c.name) + '</div>' +
+				'<div class="sub num">' + esc(c.phone || c.email || '') + '</div></div></div>'
+			).join('') || '<div class="muted">' + esc(T.no_results) + '</div>';
+			qa('[data-cid]', m).forEach((row) => row.addEventListener('click', () => {
+				state.customer = results.items.find((c) => c.id === parseInt(row.dataset.cid, 10));
+				state.creating = false;
+				q('#no-cust-new', m).style.display = 'none';
+				q('#no-cust-results', m).innerHTML = '';
+				renderCustomer();
+			}));
+		}, 300));
+
+		q('#no-cust-newbtn', m).addEventListener('click', () => {
+			state.creating = !state.creating;
+			q('#no-cust-new', m).style.display = state.creating ? '' : 'none';
+			refreshSubmit();
+		});
+		['nc-first', 'nc-phone'].forEach((id) => q('#' + id, m) && q('#' + id, m).addEventListener('input', refreshSubmit));
+
+		const renderItems = () => {
+			q('#no-items', m).innerHTML = state.items.map((it, i) =>
+				'<div class="list-item" style="cursor:default">' + thumb(it.image) +
+				'<div class="grow"><div class="title">' + esc(it.name) + '</div>' +
+				'<div class="sub">' + esc(it.attributes || '') + ' ' + money(it.price) + '</div></div>' +
+				'<button class="chip" data-qd="-1" data-i="' + i + '">−</button>' +
+				'<strong>' + num(it.qty) + '</strong>' +
+				'<button class="chip" data-qd="1" data-i="' + i + '">＋</button>' +
+				'<button class="icon-btn" data-rm="' + i + '">🗑</button></div>'
+			).join('');
+			qa('[data-qd]', m).forEach((b) => b.addEventListener('click', () => {
+				const it = state.items[b.dataset.i];
+				it.qty = Math.max(1, it.qty + parseInt(b.dataset.qd, 10));
+				renderItems();
+			}));
+			qa('[data-rm]', m).forEach((b) => b.addEventListener('click', () => {
+				state.items.splice(parseInt(b.dataset.rm, 10), 1);
+				renderItems();
+			}));
+			refreshSubmit();
+		};
+
+		const searchProducts = debounce(async (term) => {
+			const results = await api('/products/picker?term=' + encodeURIComponent(term));
+			q('#no-prod-results', m).innerHTML = results.items.map((p, i) =>
+				'<div class="list-item" data-pi="' + i + '">' + thumb(p.image) +
+				'<div class="grow"><div class="title">' + esc(p.name) + '</div>' +
+				'<div class="sub">' + esc(p.attributes || p.sku || '') + ' · ' + money(p.price) +
+				(p.stock != null ? ' · ' + esc(T.stock) + ': ' + num(p.stock) : '') + '</div></div>' +
+				'<button class="btn sm tonal">＋</button></div>'
+			).join('') || '<div class="muted">' + esc(T.no_results) + '</div>';
+			qa('[data-pi]', m).forEach((row) => row.addEventListener('click', () => {
+				const p = results.items[row.dataset.pi];
+				const existing = state.items.find((it) => it.id === p.id);
+				if (existing) existing.qty += 1;
+				else state.items.push({ id: p.id, name: p.name, attributes: p.attributes, image: p.image, price: p.price, qty: 1 });
+				q('#no-prod-results', m).innerHTML = '';
+				q('#no-prod-search', m).value = '';
+				renderItems();
+			}));
+		}, 300);
+		q('#no-prod-search', m).addEventListener('input', (e) => searchProducts(e.target.value.trim()));
+		q('#no-prod-search', m).addEventListener('focus', () => { if (!q('#no-prod-results', m).innerHTML) searchProducts(''); });
+
+		qa('#no-status .chip', m).forEach((chip) => chip.addEventListener('click', () => {
+			state.status = chip.dataset.st;
+			qa('#no-status .chip', m).forEach((c) => c.classList.toggle('active', c === chip));
+		}));
+
+		q('#no-submit', m).addEventListener('click', async () => {
+			q('#no-submit', m).disabled = true;
+			try {
+				let customerId = state.customer ? state.customer.id : 0;
+				if (!customerId && state.creating) {
+					const created = await api('/customers', {
+						method: 'POST',
+						body: {
+							first_name: q('#nc-first', m).value.trim(),
+							last_name: q('#nc-last', m).value.trim(),
+							phone: q('#nc-phone', m).value.trim(),
+							email: q('#nc-email', m).value.trim(),
+						},
+					});
+					customerId = created.id;
+				}
+				const order = await api('/orders', {
+					method: 'POST',
+					body: {
+						customer_id: customerId,
+						status: state.status,
+						items: state.items.map((it) => ({ product_id: it.id, quantity: it.qty })),
+					},
+				});
+				closeModal();
+				toast(T.created || T.saved, 'success');
+				navigate('/orders/' + order.id);
+			} catch (err) {
+				q('#no-submit', m).disabled = false;
+			}
+		});
+	}
 
 	async function orderDetail(main, id) {
 		const o = await api('/orders/' + id);
@@ -524,7 +762,11 @@
 			(o.refunded ? '<div class="muted">' + esc(T.refunds) + ': <span class="num">-' + money(o.refunded) + '</span></div>' : '') +
 			'<div class="tot">' + esc(T.total) + ': <span class="num">' + money(o.total) + '</span></div></div></div>' +
 			'<div>' +
-			(can('wfcp_orders_status') ? '<div class="card"><h3>' + esc(T.change_status) + '</h3><div class="row">' +
+			(can('wfcp_orders_status') ? '<div class="card"><h3>' + esc(T.change_status) + '</h3>' +
+				'<div class="chips" id="od-quick">' +
+				(BOOT.quickStatus || []).filter((s) => s !== o.status && BOOT.statuses['wc-' + s])
+					.map((s) => '<button class="chip" data-qs="' + esc(s) + '">' + esc(BOOT.statuses['wc-' + s]) + '</button>').join('') +
+				'</div><div class="row mt">' +
 				'<select id="od-status" style="flex:1">' +
 				Object.keys(BOOT.statuses).map((s) => '<option value="' + s.replace(/^wc-/, '') + '"' + (s === 'wc-' + o.status ? ' selected' : '') + '>' + esc(BOOT.statuses[s]) + '</option>').join('') +
 				'</select><button class="btn" id="od-setstatus">' + esc(T.save) + '</button></div></div>' : '') +
@@ -547,7 +789,10 @@
 			q('#od-items').innerHTML =
 				'<div class="table-wrap"><table class="data" style="min-width:0"><tbody>' +
 				order.items.map((it) =>
-					'<tr><td><strong>' + esc(it.name) + '</strong><div class="muted num">' + esc(it.sku || '') + '</div></td>' +
+					'<tr><td>' + thumb(it.image) + '</td>' +
+					'<td><strong>' + esc(it.name) + '</strong>' +
+					(it.variation ? '<div class="muted">' + esc(it.variation) + '</div>' : '') +
+					'<div class="muted num">' + esc(it.sku || '') + '</div></td>' +
 					'<td class="num">' + (can('wfcp_orders_edit')
 						? '<input type="number" min="1" style="width:64px" value="' + it.quantity + '" data-qty="' + it.id + '">'
 						: num(it.quantity)) + '</td>' +
@@ -593,6 +838,13 @@
 			A.render();
 		});
 
+		qa('#od-quick [data-qs]').forEach((b) => b.addEventListener('click', async () => {
+			b.disabled = true;
+			await api('/orders/' + id + '/status', { method: 'PUT', body: { status: b.dataset.qs } });
+			toast(T.saved, 'success');
+			A.render();
+		}));
+
 		if (q('#od-addnote')) q('#od-addnote').addEventListener('click', async () => {
 			const note = q('#od-note').value.trim();
 			if (!note) return;
@@ -603,22 +855,25 @@
 
 		if (q('#od-add')) q('#od-add').addEventListener('click', () => {
 			const m = modal(T.add_item,
-				'<div class="field"><label>' + esc(T.search) + '</label><input id="oi-search" autocomplete="off"></div><div id="oi-results" class="list"></div>');
-			q('#oi-search', m).addEventListener('input', debounce(async (e) => {
-				const term = e.target.value.trim();
-				if (term.length < 2) return;
-				const results = await api('/products?search=' + encodeURIComponent(term) + '&per_page=10');
+				'<input class="search-input" id="oi-search" autocomplete="off" placeholder="' + esc(T.search) + '…"><div id="oi-results" class="list mt"></div>');
+			const search = debounce(async (term) => {
+				const results = await api('/products/picker?term=' + encodeURIComponent(term));
 				q('#oi-results', m).innerHTML = results.items.map((p) =>
-					'<div class="list-item" data-pid="' + p.id + '"><div class="grow"><div class="title">' + esc(p.name) + '</div>' +
-					'<div class="sub num">' + money(p.price) + '</div></div><button class="btn sm tonal">＋</button></div>'
-				).join('');
+					'<div class="list-item" data-pid="' + p.id + '">' + thumb(p.image) +
+					'<div class="grow"><div class="title">' + esc(p.name) + '</div>' +
+					'<div class="sub">' + esc(p.attributes || p.sku || '') + ' · ' + money(p.price) +
+					(p.stock != null ? ' · ' + esc(T.stock) + ': ' + num(p.stock) : '') + '</div></div>' +
+					'<button class="btn sm tonal">＋</button></div>'
+				).join('') || '<div class="muted">' + esc(T.no_results) + '</div>';
 				qa('[data-pid]', m).forEach((row) => row.addEventListener('click', async () => {
 					const updated = await api('/orders/' + id + '/items', { method: 'POST', body: { product_id: row.dataset.pid, quantity: 1 } });
 					closeModal();
 					toast(T.saved, 'success');
 					renderItems(updated);
 				}));
-			}, 300));
+			}, 300);
+			q('#oi-search', m).addEventListener('input', (e) => search(e.target.value.trim()));
+			search('');
 		});
 
 		const invoiceHtml = (kind) => {
@@ -880,12 +1135,22 @@
 			'<div class="field"><label>' + esc(T.rows_per_page) + '</label><input id="s-perpage" type="number" min="5" max="100" value="' + s.per_page + '"></div>' +
 			'<div class="field"><label>' + esc(T.low_stock_threshold) + '</label><input id="s-lowstock" type="number" min="0" value="' + s.low_stock + '"></div>' +
 			'</div></div>' +
+			'<div class="card mt"><h3>' + esc(T.quick_actions) + '</h3>' +
+			'<div class="field"><label>' + esc(T.quick_status_set) + '</label><div class="chips" id="s-qstatus">' +
+			Object.keys(BOOT.statuses).map((key) => {
+				const st = key.replace(/^wc-/, '');
+				return '<button class="chip' + ((s.quick_status || []).includes(st) ? ' active' : '') + '" data-qst="' + esc(st) + '">' + esc(BOOT.statuses[key]) + '</button>';
+			}).join('') + '</div></div>' +
+			'<div class="field"><label>' + esc(T.quick_stock_set) + '</label><input id="s-qstock" dir="ltr" value="' + esc((s.quick_stock || []).join(',')) + '"></div>' +
+			'</div>' +
 			'<div class="card mt"><h3>' + esc(T.allowed_roles) + ' / ' + esc(T.permissions) + '</h3>' +
 			'<div class="table-wrap"><table class="perm-table"><thead><tr><th>' + esc(T.role) + '</th>' +
 			Object.keys(groups).map((g) => '<th>' + esc(T['perm_' + g] || g) + '</th>').join('') +
 			'</tr></thead><tbody>' + permRows + '</tbody></table></div>' +
 			'<p class="muted">Administrator: ' + esc(T.all) + ' ✓</p></div>' +
 			'<div class="mt"><button class="btn" id="s-save">' + esc(T.save) + '</button></div>';
+
+		qa('#s-qstatus .chip').forEach((chip) => chip.addEventListener('click', () => chip.classList.toggle('active')));
 
 		q('#s-save').addEventListener('click', async () => {
 			const roles = qa('.role-allow:checked').map((c) => c.value).concat(['administrator']);
@@ -900,10 +1165,15 @@
 					theme: q('#s-theme').value,
 					per_page: q('#s-perpage').value,
 					low_stock: q('#s-lowstock').value,
+					quick_status: qa('#s-qstatus .chip.active').map((c) => c.dataset.qst),
+					quick_stock: q('#s-qstock').value.split(',').map((v) => parseInt(v.trim(), 10)).filter((v) => v > 0),
 					roles,
 					permissions,
 				},
 			});
+			// Apply new quick-action config immediately, without a reload.
+			BOOT.quickStatus = result.settings.quick_status;
+			BOOT.quickStock = result.settings.quick_stock;
 			toast(T.settings_saved, 'success');
 			if (result.panel_url !== data.panel_url) {
 				setTimeout(() => { location.href = result.panel_url; }, 1200);

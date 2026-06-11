@@ -309,12 +309,27 @@ class WFCP_Orders_Controller extends WFCP_REST_Controller {
 		}
 		if ( ! empty( $params['billing'] ) && is_array( $params['billing'] ) ) {
 			$order->set_address( $this->sanitize_address( $params['billing'] ), 'billing' );
+		} elseif ( ! empty( $params['customer_id'] ) ) {
+			// Manual order for an existing customer: pre-fill billing from
+			// their profile so invoices and search work immediately.
+			$customer = new WC_Customer( (int) $params['customer_id'] );
+			$billing  = array_filter( $customer->get_billing() );
+			if ( $billing ) {
+				$order->set_address( $this->sanitize_address( $billing ), 'billing' );
+			}
 		}
+
 		foreach ( (array) ( $params['items'] ?? array() ) as $item ) {
+			// product_id may be a variation ID; WC CRUD handles both.
 			$product = wc_get_product( (int) ( $item['product_id'] ?? 0 ) );
 			if ( $product ) {
 				$order->add_product( $product, max( 1, (int) ( $item['quantity'] ?? 1 ) ) );
 			}
+		}
+
+		$status = sanitize_key( (string) ( $params['status'] ?? '' ) );
+		if ( $status && array_key_exists( 'wc-' . $status, wc_get_order_statuses() ) ) {
+			$order->set_status( $status );
 		}
 
 		$order->calculate_totals();
@@ -599,11 +614,27 @@ class WFCP_Orders_Controller extends WFCP_REST_Controller {
 			$items = array();
 			foreach ( $order->get_items() as $item_id => $item ) {
 				/** @var WC_Order_Item_Product $item */
+				$product  = $item->get_product();
+				$image    = '';
+				$variation = '';
+				if ( $product ) {
+					$image_id = $product->get_image_id();
+					if ( ! $image_id && $product->get_parent_id() ) {
+						$parent   = wc_get_product( $product->get_parent_id() );
+						$image_id = $parent ? $parent->get_image_id() : 0;
+					}
+					$image = $image_id ? (string) wp_get_attachment_image_url( $image_id, 'woocommerce_gallery_thumbnail' ) : '';
+					if ( $product->is_type( 'variation' ) ) {
+						$variation = wc_get_formatted_variation( $product, true, false );
+					}
+				}
 				$items[] = array(
 					'id'         => $item_id,
 					'name'       => $item->get_name(),
 					'product_id' => $item->get_product_id(),
-					'sku'        => $item->get_product() ? $item->get_product()->get_sku() : '',
+					'sku'        => $product ? $product->get_sku() : '',
+					'image'      => $image,
+					'variation'  => $variation,
 					'quantity'   => $item->get_quantity(),
 					'total'      => (float) $item->get_total(),
 				);

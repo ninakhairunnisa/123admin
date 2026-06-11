@@ -364,6 +364,25 @@ table.data input[type="checkbox"] { width: 17px; height: 17px; cursor: pointer; 
 .perm-table th, .perm-table td { padding: 8px; border-block-end: 1px solid var(--md-outline-variant); text-align: center; }
 .perm-table th:first-child, .perm-table td:first-child { text-align: start; }
 
+/* Quick actions */
+.qbtn { font-size: 11px; padding: 4px 10px; }
+.qa-cell { white-space: nowrap; }
+.qa-cell .qbtn { margin-inline-end: 4px; }
+.stock-btn {
+	border: 1px solid var(--md-outline-variant); background: var(--md-surface-container-high);
+	color: var(--md-on-surface); border-radius: var(--radius-sm);
+	padding: 6px 14px; font: inherit; cursor: pointer; min-width: 52px;
+}
+.stepper { display: flex; align-items: center; justify-content: center; gap: 12px; }
+.stepper input { width: 96px; text-align: center; font-size: 20px; font-weight: 700; }
+.sel-chip {
+	display: inline-flex; align-items: center; gap: 8px;
+	background: var(--md-secondary-container); color: var(--md-on-secondary-container);
+	border-radius: var(--radius-full); padding: 6px 12px; font-weight: 600;
+}
+.sel-chip img { width: 26px; height: 26px; border-radius: 50%; }
+.sel-chip button { border: 0; background: none; cursor: pointer; color: inherit; font-size: 14px; }
+
 /* Utility */
 .muted { color: var(--md-on-surface-variant); font-size: 12.5px; }
 .mt { margin-block-start: 14px; }

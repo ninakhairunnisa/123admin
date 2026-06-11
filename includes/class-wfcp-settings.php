@@ -27,9 +27,12 @@ class WFCP_Settings {
 			'permissions' => array(
 				'shop_manager' => WFCP_Capabilities::all_caps(),
 			),
-			'theme'       => 'auto',
-			'per_page'    => 25,
-			'low_stock'   => (int) get_option( 'woocommerce_notify_low_stock_amount', 2 ),
+			'theme'        => 'auto',
+			'per_page'     => 25,
+			'low_stock'    => (int) get_option( 'woocommerce_notify_low_stock_amount', 2 ),
+			// One-tap action buttons, configurable in the panel settings.
+			'quick_status' => array( 'processing', 'completed', 'cancelled' ),
+			'quick_stock'  => array( 1, 5, 10 ),
 		);
 	}
 
@@ -89,6 +92,12 @@ class WFCP_Settings {
 		$merged['theme']     = in_array( $merged['theme'], array( 'auto', 'light', 'dark' ), true ) ? $merged['theme'] : 'auto';
 		$merged['per_page']  = max( 5, min( 100, (int) $merged['per_page'] ) );
 		$merged['low_stock'] = max( 0, (int) $merged['low_stock'] );
+
+		$merged['quick_status'] = array_slice( array_values( array_unique( array_filter( array_map( 'sanitize_key', (array) $merged['quick_status'] ) ) ) ), 0, 6 );
+		$merged['quick_stock']  = array_slice( array_values( array_unique( array_filter( array_map( 'absint', (array) $merged['quick_stock'] ) ) ) ), 0, 4 );
+		if ( ! $merged['quick_stock'] ) {
+			$merged['quick_stock'] = array( 1, 5, 10 );
+		}
 
 		$this->cache = $merged;
 		update_option( self::OPTION_KEY, $merged, false );
