@@ -76,7 +76,16 @@
 	];
 
 	route('products', async (main, segments, params) => {
-		if (segments[0]) return; // direct deep links open the list; edits are modal-based
+		// Deep links like #/products/123 show the list and open the edit modal
+		// on top of it (never leave the boot spinner running).
+		if (segments[0]) {
+			const deepId = parseInt(segments[0], 10);
+			navigate('/products');
+			if (deepId) {
+				openProduct(deepId, () => A.render()).catch(() => {});
+			}
+			return;
+		}
 
 		const state = {
 			search: params.get('search') || '',
@@ -374,11 +383,14 @@
 				return { key: 'status:' + key, label: BOOT.statuses[s] + (counts[key] ? ' (' + num(counts[key]) + ')' : '') };
 			}));
 
-		q('#o-chips').innerHTML = chipDefs.map((c) => {
-			const active = (c.key === '' && !state.status && !state.range) ||
-				c.key === 'status:' + state.status || c.key === 'range:' + state.range;
-			return '<button class="chip' + (active ? ' active' : '') + '" data-key="' + esc(c.key) + '">' + esc(c.label) + '</button>';
-		}).join('');
+		// Combined filters (e.g. status=pending,on-hold from the dashboard)
+		// highlight every matching status chip.
+		const activeKeys = state.status ? state.status.split(',').map((s) => 'status:' + s) : [];
+		if (state.range) activeKeys.push('range:' + state.range);
+		if (!activeKeys.length) activeKeys.push('');
+		q('#o-chips').innerHTML = chipDefs.map((c) =>
+			'<button class="chip' + (activeKeys.includes(c.key) ? ' active' : '') + '" data-key="' + esc(c.key) + '">' + esc(c.label) + '</button>'
+		).join('');
 
 		let lastData = null;
 
@@ -570,7 +582,10 @@
 		};
 		loadNotes();
 
-		q('#od-back').addEventListener('click', () => navigate('/orders'));
+		// Going back preserves the previous list filters when possible.
+		q('#od-back').addEventListener('click', () => {
+			if (window.history.length > 1) history.back(); else navigate('/orders');
+		});
 
 		if (q('#od-setstatus')) q('#od-setstatus').addEventListener('click', async () => {
 			await api('/orders/' + id + '/status', { method: 'PUT', body: { status: q('#od-status').value } });
@@ -708,7 +723,9 @@
 			).join('') : '<div class="empty">' + esc(T.no_results) + '</div>') +
 			'</div></div></div>';
 
-		q('#cd-back').addEventListener('click', () => navigate('/customers'));
+		q('#cd-back').addEventListener('click', () => {
+			if (window.history.length > 1) history.back(); else navigate('/customers');
+		});
 		qa('[data-order]', main).forEach((el) => el.addEventListener('click', () => navigate('/orders/' + el.dataset.order)));
 
 		if (q('#cd-save')) q('#cd-save').addEventListener('click', async () => {

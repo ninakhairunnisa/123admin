@@ -137,6 +137,31 @@ class WFCP_Orders_Controller extends WFCP_REST_Controller {
 	public function list_orders( WP_REST_Request $request ): WP_REST_Response {
 		$pagination = $this->pagination( $request );
 
+		// Unprefixed status filter (e.g. ['processing', 'on-hold']) or null for "any".
+		$statuses     = null;
+		$status_param = (string) $request->get_param( 'status' );
+		if ( $status_param && 'any' !== $status_param ) {
+			$statuses = array_map( 'sanitize_key', explode( ',', $status_param ) );
+		}
+
+		$tz   = wp_timezone();
+		$from = 0;
+		$to   = 0;
+		switch ( (string) $request->get_param( 'range' ) ) {
+			case 'today':
+				$from = ( new DateTimeImmutable( 'today', $tz ) )->getTimestamp();
+				break;
+			case 'yesterday':
+				$from = ( new DateTimeImmutable( 'yesterday', $tz ) )->getTimestamp();
+				$to   = ( new DateTimeImmutable( 'today', $tz ) )->getTimestamp() - 1;
+				break;
+		}
+
+		$search = trim( (string) $request->get_param( 'search' ) );
+		if ( '' !== $search ) {
+			return $this->search_results( $search, $statuses, $from, $to, $pagination );
+		}
+
 		$args = array(
 			'limit'    => $pagination['per_page'],
 			'page'     => $pagination['page'],
@@ -144,33 +169,16 @@ class WFCP_Orders_Controller extends WFCP_REST_Controller {
 			'orderby'  => 'date',
 			'order'    => 'DESC',
 			'type'     => 'shop_order',
+			// Internal checkout drafts are never shown in the panel.
+			'status'   => $statuses
+				? array_map( static fn( $s ) => "wc-{$s}", $statuses )
+				: array_values( array_diff( array_keys( wc_get_order_statuses() ), array( 'wc-checkout-draft' ) ) ),
 		);
 
-		$status = (string) $request->get_param( 'status' );
-		if ( $status && 'any' !== $status ) {
-			$args['status'] = array_map( 'sanitize_key', explode( ',', $status ) );
-		}
-
-		$tz = wp_timezone();
-		switch ( (string) $request->get_param( 'range' ) ) {
-			case 'today':
-				$args['date_created'] = '>=' . ( new DateTimeImmutable( 'today', $tz ) )->getTimestamp();
-				break;
-			case 'yesterday':
-				$start                = ( new DateTimeImmutable( 'yesterday', $tz ) )->getTimestamp();
-				$end                  = ( new DateTimeImmutable( 'today', $tz ) )->getTimestamp() - 1;
-				$args['date_created'] = $start . '...' . $end;
-				break;
-		}
-
-		$search = trim( (string) $request->get_param( 'search' ) );
-		if ( '' !== $search ) {
-			$ids = $this->search_order_ids( $search );
-			if ( ! $ids ) {
-				return $this->list_response( array(), 0, 1, $pagination['per_page'] );
-			}
-			$args['post__in'] = $ids; // Used by legacy storage.
-			$args['id']       = $ids; // Used by HPOS OrdersTableQuery ('id' accepts arrays).
+		if ( $from && $to ) {
+			$args['date_created'] = $from . '...' . $to;
+		} elseif ( $from ) {
+			$args['date_created'] = '>=' . $from;
 		}
 
 		$results = wc_get_orders( $args );
@@ -180,40 +188,91 @@ class WFCP_Orders_Controller extends WFCP_REST_Controller {
 	}
 
 	/**
-	 * Resolves a free-text search to order IDs.
+	 * Search result list. IDs come from direct SQL (storage-aware); status and
+	 * date filters are applied in PHP because neither legacy post__in nor HPOS
+	 * id-array params behave consistently across order storages.
+	 *
+	 * @param string     $search     Search term.
+	 * @param array|null $statuses   Unprefixed statuses or null for any.
+	 * @param int        $from       Min created timestamp (0 = unbounded).
+	 * @param int        $to         Max created timestamp (0 = unbounded).
+	 * @param array      $pagination page / per_page.
+	 */
+	private function search_results( string $search, ?array $statuses, int $from, int $to, array $pagination ): WP_REST_Response {
+		$matched = array();
+
+		foreach ( array_slice( $this->search_order_ids( $search ), 0, 300 ) as $id ) {
+			$order = wc_get_order( $id );
+			if ( ! $order instanceof WC_Order || 'checkout-draft' === $order->get_status() ) {
+				continue;
+			}
+			if ( null !== $statuses && ! in_array( $order->get_status(), $statuses, true ) ) {
+				continue;
+			}
+			$created = $order->get_date_created() ? $order->get_date_created()->getTimestamp() : 0;
+			if ( ( $from && $created < $from ) || ( $to && $created > $to ) ) {
+				continue;
+			}
+			$matched[] = $order;
+		}
+
+		usort(
+			$matched,
+			static fn( WC_Order $a, WC_Order $b ) =>
+				( $b->get_date_created() ? $b->get_date_created()->getTimestamp() : 0 )
+				<=> ( $a->get_date_created() ? $a->get_date_created()->getTimestamp() : 0 )
+		);
+
+		$total = count( $matched );
+		$page  = array_slice( $matched, ( $pagination['page'] - 1 ) * $pagination['per_page'], $pagination['per_page'] );
+
+		return $this->list_response( array_map( array( $this, 'format_order' ), $page ), $total, $pagination['page'], $pagination['per_page'] );
+	}
+
+	/**
+	 * Resolves a free-text search to order IDs with partial (LIKE) matching on
+	 * email, phone and billing name, supporting both HPOS and legacy storage.
 	 */
 	private function search_order_ids( string $term ): array {
-		// Pure number: try order ID / number first.
-		if ( ctype_digit( $term ) && wc_get_order( (int) $term ) ) {
-			return array( (int) $term );
-		}
-
-		$field_queries = array();
-		if ( str_contains( $term, '@' ) ) {
-			$field_queries[] = array( 'billing_email' => $term );
-		} elseif ( preg_match( '/^[0-9+\-\s()]+$/', $term ) ) {
-			$field_queries[] = array( 'billing_phone' => preg_replace( '/[\s\-()]/', '', $term ) );
-		} else {
-			$field_queries[] = array( 'billing_first_name' => $term );
-			$field_queries[] = array( 'billing_last_name' => $term );
-		}
+		global $wpdb;
 
 		$ids = array();
-		foreach ( $field_queries as $query ) {
-			$found = wc_get_orders(
-				array_merge(
-					$query,
-					array(
-						'limit'  => 100,
-						'return' => 'ids',
-						'type'   => 'shop_order',
-					)
-				)
-			);
-			$ids = array_merge( $ids, array_map( 'intval', (array) $found ) );
+
+		// Pure number: the order ID itself is always a candidate.
+		if ( ctype_digit( $term ) && wc_get_order( (int) $term ) ) {
+			$ids[] = (int) $term;
 		}
 
-		return array_values( array_unique( $ids ) );
+		$like = '%' . $wpdb->esc_like( $term ) . '%';
+		$hpos = $this->hpos_enabled();
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery
+		if ( str_contains( $term, '@' ) ) {
+			$found = $hpos
+				? $wpdb->get_col( $wpdb->prepare( "SELECT id FROM {$wpdb->prefix}wc_orders WHERE type = 'shop_order' AND billing_email LIKE %s ORDER BY id DESC LIMIT 100", $like ) )
+				: $wpdb->get_col( $wpdb->prepare( "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_billing_email' AND meta_value LIKE %s ORDER BY post_id DESC LIMIT 100", $like ) );
+		} elseif ( preg_match( '/^[0-9+\-\s()]+$/', $term ) ) {
+			$digits = '%' . $wpdb->esc_like( preg_replace( '/[\s\-()]/', '', $term ) ) . '%';
+			$strip  = static fn( string $col ): string => "REPLACE(REPLACE(REPLACE(REPLACE({$col}, ' ', ''), '-', ''), '(', ''), ')', '')";
+			$found  = $hpos
+				? $wpdb->get_col( $wpdb->prepare( "SELECT order_id FROM {$wpdb->prefix}wc_order_addresses WHERE address_type = 'billing' AND {$strip('phone')} LIKE %s ORDER BY order_id DESC LIMIT 100", $digits ) )
+				: $wpdb->get_col( $wpdb->prepare( "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_billing_phone' AND {$strip('meta_value')} LIKE %s ORDER BY post_id DESC LIMIT 100", $digits ) );
+		} else {
+			$found = $hpos
+				? $wpdb->get_col( $wpdb->prepare( "SELECT order_id FROM {$wpdb->prefix}wc_order_addresses WHERE address_type = 'billing' AND CONCAT_WS(' ', first_name, last_name) LIKE %s ORDER BY order_id DESC LIMIT 100", $like ) )
+				: $wpdb->get_col(
+					$wpdb->prepare(
+						"SELECT fm.post_id FROM {$wpdb->postmeta} fm
+						 INNER JOIN {$wpdb->postmeta} lm ON lm.post_id = fm.post_id AND lm.meta_key = '_billing_last_name'
+						 WHERE fm.meta_key = '_billing_first_name' AND CONCAT_WS(' ', fm.meta_value, lm.meta_value) LIKE %s
+						 ORDER BY fm.post_id DESC LIMIT 100",
+						$like
+					)
+				);
+		}
+		// phpcs:enable
+
+		return array_values( array_unique( array_merge( $ids, array_map( 'intval', (array) $found ) ) ) );
 	}
 
 	/**
@@ -221,7 +280,7 @@ class WFCP_Orders_Controller extends WFCP_REST_Controller {
 	 */
 	public function counts(): WP_REST_Response {
 		$counts = array();
-		foreach ( array_keys( wc_get_order_statuses() ) as $status ) {
+		foreach ( array_diff( array_keys( wc_get_order_statuses() ), array( 'wc-checkout-draft' ) ) as $status ) {
 			$result = wc_get_orders(
 				array(
 					'limit'    => 1,
@@ -507,8 +566,9 @@ class WFCP_Orders_Controller extends WFCP_REST_Controller {
 
 		return rest_ensure_response(
 			array(
-				'filename' => 'orders-' . gmdate( 'Ymd-His' ) . '.csv',
-				'csv'      => $this->to_csv( array( 'Number', 'Date', 'Status', 'Customer', 'Email', 'Phone', 'Total', 'Payment' ), $rows ),
+				'filename'  => 'orders-' . gmdate( 'Ymd-His' ) . '.csv',
+				'csv'       => $this->to_csv( array( 'Number', 'Date', 'Status', 'Customer', 'Email', 'Phone', 'Total', 'Payment' ), $rows ),
+				'truncated' => count( $rows ) < (int) $batch['total'],
 			)
 		);
 	}

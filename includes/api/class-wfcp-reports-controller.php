@@ -166,7 +166,26 @@ class WFCP_Reports_Controller extends WFCP_REST_Controller {
 	}
 
 	/**
-	 * Top products by units sold (last 90 days), via order item meta.
+	 * SQL JOIN clause restricting order-item aggregates to paid orders,
+	 * for the active order storage (HPOS or legacy posts).
+	 *
+	 * @return array{0:string, 1:string[]} JOIN SQL with %s placeholders + values.
+	 */
+	private function paid_orders_join(): array {
+		global $wpdb;
+
+		$paid         = array_map( static fn( $s ) => "wc-{$s}", wc_get_is_paid_statuses() );
+		$placeholders = implode( ',', array_fill( 0, count( $paid ), '%s' ) );
+
+		$join = $this->hpos_enabled()
+			? "INNER JOIN {$wpdb->prefix}wc_orders o ON o.id = oi.order_id AND o.type = 'shop_order' AND o.status IN ({$placeholders})"
+			: "INNER JOIN {$wpdb->posts} o ON o.ID = oi.order_id AND o.post_type = 'shop_order' AND o.post_status IN ({$placeholders})";
+
+		return array( $join, $paid );
+	}
+
+	/**
+	 * Top products by units sold across paid orders, via order item meta.
 	 */
 	public function products(): WP_REST_Response {
 		global $wpdb;
@@ -175,13 +194,16 @@ class WFCP_Reports_Controller extends WFCP_REST_Controller {
 		$data      = get_transient( $cache_key );
 
 		if ( ! is_array( $data ) ) {
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery
+			list( $orders_join, $paid ) = $this->paid_orders_join();
+
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
 					"SELECT pm.meta_value AS product_id,
 					        SUM(qm.meta_value) AS qty,
 					        SUM(tm.meta_value) AS revenue
 					 FROM {$wpdb->prefix}woocommerce_order_items oi
+					 {$orders_join}
 					 INNER JOIN {$wpdb->prefix}woocommerce_order_itemmeta pm ON pm.order_item_id = oi.order_item_id AND pm.meta_key = '_product_id'
 					 INNER JOIN {$wpdb->prefix}woocommerce_order_itemmeta qm ON qm.order_item_id = oi.order_item_id AND qm.meta_key = '_qty'
 					 INNER JOIN {$wpdb->prefix}woocommerce_order_itemmeta tm ON tm.order_item_id = oi.order_item_id AND tm.meta_key = '_line_total'
@@ -189,7 +211,7 @@ class WFCP_Reports_Controller extends WFCP_REST_Controller {
 					 GROUP BY pm.meta_value
 					 ORDER BY qty DESC
 					 LIMIT %d",
-					50
+					array_merge( $paid, array( 50 ) )
 				),
 				ARRAY_A
 			);
@@ -216,35 +238,66 @@ class WFCP_Reports_Controller extends WFCP_REST_Controller {
 	}
 
 	/**
-	 * Top customers by lifetime value.
+	 * Top customers by lifetime value, aggregated in SQL over all paid orders
+	 * (not just the most recently registered users).
 	 */
 	public function customers(): WP_REST_Response {
-		$query = new WP_User_Query(
-			array(
-				'role__in' => array( 'customer', 'subscriber' ),
-				'number'   => 200,
-				'fields'   => array( 'ID', 'display_name', 'user_email' ),
-			)
-		);
+		global $wpdb;
 
-		$items = array();
-		foreach ( $query->get_results() as $user ) {
-			$spent = (float) wc_get_customer_total_spent( $user->ID );
-			if ( $spent <= 0 ) {
-				continue;
+		$cache_key = 'wfcp_report_customers';
+		$items     = get_transient( $cache_key );
+
+		if ( ! is_array( $items ) ) {
+			$paid         = array_map( static fn( $s ) => "wc-{$s}", wc_get_is_paid_statuses() );
+			$placeholders = implode( ',', array_fill( 0, count( $paid ), '%s' ) );
+
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			if ( $this->hpos_enabled() ) {
+				$rows = $wpdb->get_results(
+					$wpdb->prepare(
+						"SELECT customer_id, COUNT(*) AS orders, SUM(total_amount) AS spent
+						 FROM {$wpdb->prefix}wc_orders
+						 WHERE type = 'shop_order' AND customer_id > 0 AND status IN ({$placeholders})
+						 GROUP BY customer_id ORDER BY spent DESC LIMIT 50",
+						$paid
+					),
+					ARRAY_A
+				);
+			} else {
+				$rows = $wpdb->get_results(
+					$wpdb->prepare(
+						"SELECT CAST(cm.meta_value AS UNSIGNED) AS customer_id, COUNT(*) AS orders, SUM(tm.meta_value + 0) AS spent
+						 FROM {$wpdb->posts} p
+						 INNER JOIN {$wpdb->postmeta} cm ON cm.post_id = p.ID AND cm.meta_key = '_customer_user' AND cm.meta_value > 0
+						 INNER JOIN {$wpdb->postmeta} tm ON tm.post_id = p.ID AND tm.meta_key = '_order_total'
+						 WHERE p.post_type = 'shop_order' AND p.post_status IN ({$placeholders})
+						 GROUP BY cm.meta_value ORDER BY spent DESC LIMIT 50",
+						$paid
+					),
+					ARRAY_A
+				);
 			}
-			$items[] = array(
-				'id'     => (int) $user->ID,
-				'name'   => $user->display_name,
-				'email'  => $user->user_email,
-				'orders' => wc_get_customer_order_count( $user->ID ),
-				'spent'  => $spent,
-			);
+			// phpcs:enable
+
+			$items = array();
+			foreach ( (array) $rows as $row ) {
+				$user = get_userdata( (int) $row['customer_id'] );
+				if ( ! $user ) {
+					continue;
+				}
+				$items[] = array(
+					'id'     => (int) $row['customer_id'],
+					'name'   => $user->display_name,
+					'email'  => $user->user_email,
+					'orders' => (int) $row['orders'],
+					'spent'  => (float) $row['spent'],
+				);
+			}
+
+			set_transient( $cache_key, $items, 10 * MINUTE_IN_SECONDS );
 		}
 
-		usort( $items, static fn( $a, $b ) => $b['spent'] <=> $a['spent'] );
-
-		return rest_ensure_response( array( 'items' => array_slice( $items, 0, 50 ) ) );
+		return rest_ensure_response( array( 'items' => $items ) );
 	}
 
 	/**

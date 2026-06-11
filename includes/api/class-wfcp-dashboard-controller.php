@@ -176,29 +176,50 @@ class WFCP_Dashboard_Controller extends WFCP_REST_Controller {
 		return (int) $result->total;
 	}
 
+	/**
+	 * Lifetime revenue via a single SQL SUM (loading every order object into
+	 * memory does not scale on large stores).
+	 */
 	private function total_revenue(): float {
+		global $wpdb;
+
 		$key   = 'wfcp_total_revenue';
 		$total = get_transient( $key );
+
 		if ( false === $total ) {
-			$total  = 0.0;
-			$orders = wc_get_orders(
-				array(
-					'limit'  => -1,
-					'status' => array_map( static fn( $s ) => "wc-{$s}", wc_get_is_paid_statuses() ),
-					'return' => 'objects',
-				)
-			);
-			foreach ( $orders as $order ) {
-				$total += (float) $order->get_total();
+			$paid         = array_map( static fn( $s ) => "wc-{$s}", wc_get_is_paid_statuses() );
+			$placeholders = implode( ',', array_fill( 0, count( $paid ), '%s' ) );
+
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			if ( $this->hpos_enabled() ) {
+				$total = (float) $wpdb->get_var(
+					$wpdb->prepare(
+						"SELECT SUM(total_amount) FROM {$wpdb->prefix}wc_orders
+						 WHERE type = 'shop_order' AND status IN ({$placeholders})",
+						$paid
+					)
+				);
+			} else {
+				$total = (float) $wpdb->get_var(
+					$wpdb->prepare(
+						"SELECT SUM(pm.meta_value + 0) FROM {$wpdb->posts} p
+						 INNER JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = '_order_total'
+						 WHERE p.post_type = 'shop_order' AND p.post_status IN ({$placeholders})",
+						$paid
+					)
+				);
 			}
+			// phpcs:enable
+
 			set_transient( $key, $total, 10 * MINUTE_IN_SECONDS );
 		}
+
 		return (float) $total;
 	}
 
 	private function customers_count(): int {
 		$counts = count_users();
-		return (int) ( $counts['avail_roles']['customer'] ?? 0 );
+		return (int) ( $counts['avail_roles']['customer'] ?? 0 ) + (int) ( $counts['avail_roles']['subscriber'] ?? 0 );
 	}
 
 	private function stock_counts(): array {
@@ -207,18 +228,23 @@ class WFCP_Dashboard_Controller extends WFCP_REST_Controller {
 		$threshold = (int) wfcp()->settings->get( 'low_stock', 2 );
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery
+		// Out of stock: parents only — WooCommerce syncs a variable product's
+		// stock status from its variations, so counting variations too would
+		// double-count.
 		$out_of_stock = (int) $wpdb->get_var(
 			"SELECT COUNT(p.ID) FROM {$wpdb->posts} p
 			 INNER JOIN {$wpdb->postmeta} m ON m.post_id = p.ID AND m.meta_key = '_stock_status'
 			 WHERE p.post_type = 'product' AND p.post_status = 'publish' AND m.meta_value = 'outofstock'"
 		);
 
+		// Low stock: variations included — stock is usually managed on the
+		// variation, and the parent carries no _stock of its own.
 		$low_stock = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(p.ID) FROM {$wpdb->posts} p
 				 INNER JOIN {$wpdb->postmeta} s ON s.post_id = p.ID AND s.meta_key = '_stock'
 				 INNER JOIN {$wpdb->postmeta} ms ON ms.post_id = p.ID AND ms.meta_key = '_manage_stock' AND ms.meta_value = 'yes'
-				 WHERE p.post_type = 'product' AND p.post_status = 'publish'
+				 WHERE p.post_type IN ('product', 'product_variation') AND p.post_status = 'publish'
 				 AND CAST(s.meta_value AS SIGNED) > 0 AND CAST(s.meta_value AS SIGNED) <= %d",
 				$threshold
 			)

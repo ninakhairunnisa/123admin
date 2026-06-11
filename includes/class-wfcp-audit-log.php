@@ -73,7 +73,8 @@ class WFCP_Audit_Log {
 				$user                = get_userdata( (int) $row['user_id'] );
 				$row['user_name']    = $user ? $user->display_name : __( 'System', 'wfcp' );
 				$row['details']      = json_decode( (string) $row['details'], true );
-				$row['created_at']   = mysql2date( 'c', $row['created_at'], false );
+				// Stored as UTC; convert to the site timezone for display.
+				$row['created_at']   = get_date_from_gmt( $row['created_at'], 'Y-m-d H:i' );
 				return $row;
 			},
 			$rows ?: array()

@@ -143,6 +143,8 @@ class WFCP_Products_Controller extends WFCP_REST_Controller {
 
 		switch ( (string) $request->get_param( 'view' ) ) {
 			case 'low_stock':
+				// Variations included: stock is usually managed per-variation.
+				$args['post_type']    = array( 'product', 'product_variation' );
 				$args['meta_query'][] = array( 'key' => '_manage_stock', 'value' => 'yes' );
 				$args['meta_query'][] = array(
 					'key'     => '_stock',
@@ -158,7 +160,12 @@ class WFCP_Products_Controller extends WFCP_REST_Controller {
 				$args['meta_query'][] = array( 'key' => '_thumbnail_id', 'compare' => 'NOT EXISTS' );
 				break;
 			case 'on_sale':
-				$args['post__in'] = wc_get_product_ids_on_sale() ?: array( 0 );
+				$on_sale = wc_get_product_ids_on_sale() ?: array( 0 );
+				// A SKU search may already have constrained post__in; intersect
+				// instead of overwriting so both filters apply.
+				$args['post__in'] = isset( $args['post__in'] )
+					? ( array_values( array_intersect( $args['post__in'], $on_sale ) ) ?: array( 0 ) )
+					: $on_sale;
 				break;
 			case 'best_sellers':
 				$args['meta_key'] = 'total_sales'; // phpcs:ignore WordPress.DB.SlowDBQuery
@@ -434,8 +441,9 @@ class WFCP_Products_Controller extends WFCP_REST_Controller {
 
 		return rest_ensure_response(
 			array(
-				'filename' => 'products-' . gmdate( 'Ymd-His' ) . '.csv',
-				'csv'      => $this->to_csv( array( 'ID', 'Name', 'SKU', 'Regular price', 'Sale price', 'Stock', 'Stock status', 'Status', 'Total sales' ), $rows ),
+				'filename'  => 'products-' . gmdate( 'Ymd-His' ) . '.csv',
+				'csv'       => $this->to_csv( array( 'ID', 'Name', 'SKU', 'Regular price', 'Sale price', 'Stock', 'Stock status', 'Status', 'Total sales' ), $rows ),
+				'truncated' => count( $rows ) < (int) $batch['total'],
 			)
 		);
 	}

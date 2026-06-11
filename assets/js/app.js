@@ -55,6 +55,12 @@
 
 		const data = await response.json().catch(() => ({}));
 		if (!response.ok) {
+			// Expired wp_rest nonce (panel left open > nonce lifetime): reload
+			// to obtain a fresh one instead of failing every request silently.
+			if (response.status === 403 && data && data.code === 'rest_cookie_invalid_nonce') {
+				toast(T.session_expired || 'Session expired. Reloading…', 'error');
+				setTimeout(() => location.reload(), 1200);
+			}
 			const message = data && data.message ? data.message : (T.error || 'Error');
 			toast(message, 'error');
 			const error = new Error(message);
@@ -66,7 +72,7 @@
 
 	/* ---------- Toast ---------- */
 
-	function toast(message, type) {
+	function toast(message, type, onClick) {
 		let host = $('#toasts');
 		if (!host) {
 			host = document.createElement('div');
@@ -76,12 +82,20 @@
 		const el = document.createElement('div');
 		el.className = 'toast' + (type ? ' ' + type : '');
 		el.textContent = message;
+		if (onClick) {
+			el.style.pointerEvents = 'auto';
+			el.style.cursor = 'pointer';
+			el.addEventListener('click', () => {
+				el.remove();
+				onClick();
+			});
+		}
 		host.appendChild(el);
 		setTimeout(() => {
 			el.style.opacity = '0';
 			el.style.transition = 'opacity .3s';
 			setTimeout(() => el.remove(), 320);
-		}, 3200);
+		}, onClick ? 6000 : 3200);
 	}
 
 	/* ---------- Modal ---------- */
@@ -206,7 +220,7 @@
 		app.innerHTML =
 			'<div class="shell">' +
 			'<header class="appbar">' +
-			'<div class="brand"><img src="' + esc(BOOT.assets && BOOT.assets.css ? BOOT.assets.css.replace(/assets\/css\/panel\.css.*/, 'assets/img/icon.svg') : '') + '" alt="">' +
+			'<div class="brand"><img src="' + esc(BOOT.assets && BOOT.assets.icon ? BOOT.assets.icon : '') + '" alt="">' +
 			'<span>' + esc(BOOT.siteName) + '</span></div>' +
 			'<div class="grow"></div>' +
 			'<div class="gsearch"><span>🔍</span><input id="gsearch" type="search" placeholder="' + esc(T.global_search || 'Search') + '" autocomplete="off"></div>' +
@@ -297,6 +311,9 @@
 		a.download = payload.filename || 'export.csv';
 		a.click();
 		URL.revokeObjectURL(a.href);
+		if (payload.truncated) {
+			toast(T.export_truncated || 'Export truncated.', 'error');
+		}
 	}
 
 	function printHtml(html) {
@@ -347,7 +364,9 @@
 		setInterval(async () => {
 			try {
 				const data = await api('/dashboard/ping?last_order=' + lastOrderId);
-				if (data.has_new) toast(T.new_order_arrived || 'New order!', 'success');
+				if (data.has_new) {
+					toast(T.new_order_arrived || 'New order!', 'success', () => navigate('/orders?range=today'));
+				}
 				lastOrderId = data.last_order || lastOrderId;
 			} catch (err) { /* silent */ }
 		}, 30000);

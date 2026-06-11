@@ -69,6 +69,8 @@ class WFCP_I18n {
 			'copied'              => __( 'Copied.', 'wfcp' ),
 			'shortcut_hint'       => __( 'Press / to search, g then a key to navigate.', 'wfcp' ),
 			'offline'             => __( 'You appear to be offline.', 'wfcp' ),
+			'session_expired'     => __( 'Your session has expired. Reloading…', 'wfcp' ),
+			'export_truncated'    => __( 'The export was truncated. Refine your filters to export everything.', 'wfcp' ),
 			'name'                => __( 'Name', 'wfcp' ),
 			'date'                => __( 'Date', 'wfcp' ),
 			'status'              => __( 'Status', 'wfcp' ),
